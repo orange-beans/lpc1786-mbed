@@ -6,7 +6,8 @@ Serial pc(USBTX, USBRX);
 
 Ticker flipper;
 Ticker flipper2;
-DigitalOut led1(LED1);
+PwmOut led1(LED1);
+//DigitalOut led1(LED1);
 DigitalOut led2(LED2);
 //DigitalOut led3(LED3);
 //DigitalOut led4(LED4);
@@ -22,30 +23,28 @@ void flip() {
 void readPC() {
   // Note: you need to actually read from the serial to clear the RX interrupt
   //char _buffer[128];
-  string test_str = "{\"name\":5}";
   string holder;
-  //string temp;
   cJSON *json;
-  int count;
-  json = cJSON_Parse(test_str.c_str());
-  if (!json) {
-    printf("Error before: [%s]\n", cJSON_GetErrorPtr());
-    //wait(2.0);
-  } else {
-    count = cJSON_GetObjectItem(json, "name")->valueint;
-    cJSON_Delete(json);
-  }
+  int period;
+
   char temp;
   while(temp != '\n') {
     temp = pc.getc();
     holder += temp;
-    //pc.gets(_buffer, 4);
-    //temp += _buffer;
   }
-  //printf("%s\n", temp.c_str());
+  json = cJSON_Parse(holder.c_str());
+  if (!json) {
+    printf("Error before: [%s]\n", cJSON_GetErrorPtr());
+  } else {
+    period = cJSON_GetObjectItem(json, "period")->valueint;
+    cJSON_Delete(json);
+  }
+
   printf("%s\n", holder.c_str());
-  printf("%d\n", count);
-  led1 = !led1;
+  printf("period is %d ms\n", period);
+  led1.period_ms(period);
+  led1.write(0.5f);
+  //led1 = !led1;
 }
 
 Flasher led3(LED3);
@@ -60,7 +59,7 @@ int main() {
   while(1) {
     led3.flash(1);
     led4.flash();
-    pc.printf("testing\n");
+    //pc.printf("testing\n");
     //wait(1.0f);
   }
 }
