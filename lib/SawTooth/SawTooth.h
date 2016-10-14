@@ -7,15 +7,18 @@
 class SawTooth {
   public:
     SawTooth(PinName pin);
-    SawTooth(PinName pin, uint16_t num);
+    SawTooth(PinName pin, double factor);
     // set length means set resolution,
     // longer length also means longer period
     void setLength(uint16_t length);
-    // number of period out
+    // output the waveForm
     void waveOut(uint16_t n);
+    // dynamically re-calculate the waveForm table
+    void setWave(double factor);
   private:
     AnalogOut _pin;
     uint16_t length;
+    uint16_t amplitude;
     uint16_t table[1000] = {};
 };
 

@@ -16,7 +16,7 @@ DigitalOut led2(LED2);
 //DigitalOut led3(LED3);
 //DigitalOut led4(LED4);
 
-SawTooth sawTooth(p18);
+SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
@@ -34,8 +34,11 @@ void readPC() {
   string holder;
   cJSON *json;
   // parameters list
+  // factor: scale of 3V
+  // ccles: number of periods to run
   int period;
   int cycles;
+  double factor;
 
   char temp;
   while(temp != '\n') {
@@ -48,6 +51,7 @@ void readPC() {
   } else {
     period = cJSON_GetObjectItem(json, "period")->valueint;
     cycles = cJSON_GetObjectItem(json, "cycles")->valueint;
+    factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
     cJSON_Delete(json);
   }
 
@@ -55,6 +59,7 @@ void readPC() {
   printf("period is %d ms\n", period);
   led1.period_ms(period);
   led1.write(0.5f);
+  sawTooth.setWave(factor);
   sawTooth.waveOut(cycles);
   //led1 = !led1;
 }
