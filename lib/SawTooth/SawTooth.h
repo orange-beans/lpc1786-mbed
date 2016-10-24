@@ -16,9 +16,12 @@ class SawTooth {
     // dynamically re-calculate the waveForm table
     void setWave(double factor);
   private:
+    // calculate waveform table
+    void updateTable();
+    void updateTable(double factor);
     AnalogOut _pin;
     uint16_t length;
-    uint16_t amplitude;
+    //uint16_t amplitude;
     uint16_t table[1000] = {};
 };
 
