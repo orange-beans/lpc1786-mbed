@@ -55,12 +55,12 @@ void readPC() {
     cJSON_Delete(json);
   }
 
-  printf("%s\n", holder.c_str());
-  printf("period is %d ms\n", period);
   led1.period_ms(period);
   led1.write(0.5f);
-  sawTooth.setWave(factor);
+  sawTooth.setWave(factor, period);
   sawTooth.waveOut(cycles);
+  printf("%s\n", holder.c_str());
+  printf("period is %d ms\n", period);
   //led1 = !led1;
 }
 
