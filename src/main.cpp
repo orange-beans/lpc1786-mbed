@@ -3,6 +3,7 @@
 #include <cJSON.h>
 #include <Flasher.h>
 #include <SawTooth.h>
+#include <Stepper.h>
 Serial pc(USBTX, USBRX);
 
 // DAC pin18
