@@ -21,6 +21,9 @@ SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
+// Stepper motor control
+stepper stepperA(p21, p22);
+
 void flip2() {
   led1 = !led1;
 }
@@ -39,6 +42,7 @@ void readPC() {
   // ccles: number of periods to run
   int period;
   int cycles;
+  int stepsA, directionA;
   double factor;
 
   char temp;
@@ -46,6 +50,8 @@ void readPC() {
     temp = pc.getc();
     holder += temp;
   }
+  if (holder.length() < 10) return;
+
   json = cJSON_Parse(holder.c_str());
   if (!json) {
     printf("Error before: [%s]\n", cJSON_GetErrorPtr());
@@ -53,11 +59,16 @@ void readPC() {
     period = cJSON_GetObjectItem(json, "period")->valueint;
     cycles = cJSON_GetObjectItem(json, "cycles")->valueint;
     factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
+    stepsA = cJSON_GetObjectItem(json, "stepsA")->valueint;
+    directionA = cJSON_GetObjectItem(json, "directionA")->valueint;
     cJSON_Delete(json);
   }
 
   led1.period_ms(period);
   led1.write(0.5f);
+  // Move Stepper Motor
+  stepperA.step(stepsA, directionA, 300, false);
+  // Generate Wave
   sawTooth.setWave(factor, period);
   sawTooth.waveOut(cycles);
   printf("%s\n", holder.c_str());
