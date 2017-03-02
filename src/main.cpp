@@ -4,7 +4,7 @@
 #include <Flasher.h>
 #include <SawTooth.h>
 #include <Stepper.h>
-Serial pc(USBTX, USBRX);
+Serial pc(USBTX, USBRX, 115200);
 
 // DAC pin18
 //AnalogOut aout(p18);
@@ -22,7 +22,10 @@ Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
 // Stepper motor control
-stepper stepperA(p21, p22);
+// stepperA is at connector P3
+// stepperB is at connector P4
+stepper stepperA(p5, p6);
+stepper stepperB(p7, p8);
 
 void flip2() {
   led1 = !led1;
@@ -42,7 +45,7 @@ void readPC() {
   // ccles: number of periods to run
   int period;
   int cycles;
-  int stepsA, directionA;
+  int stepsA, directionA, stepsB, directionB;
   double factor;
 
   char temp;
@@ -61,6 +64,8 @@ void readPC() {
     factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
     stepsA = cJSON_GetObjectItem(json, "stepsA")->valueint;
     directionA = cJSON_GetObjectItem(json, "directionA")->valueint;
+    stepsB = cJSON_GetObjectItem(json, "stepsB")->valueint;
+    directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
     cJSON_Delete(json);
   }
 
@@ -68,6 +73,7 @@ void readPC() {
   led1.write(0.5f);
   // Move Stepper Motor
   stepperA.step(stepsA, directionA, 300, false);
+  stepperB.step(stepsB, directionB, 300, false);
   // Generate Wave
   sawTooth.setWave(factor, period);
   sawTooth.waveOut(cycles);
