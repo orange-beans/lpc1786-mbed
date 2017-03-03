@@ -37,7 +37,7 @@ void flip() {
 
 void readPC() {
   // Disable the ISR during handling
-  pc.attach(null);
+  pc.attach(0);
 
   // Note: you need to actually read from the serial to clear the RX interrupt
   //char _buffer[128];
