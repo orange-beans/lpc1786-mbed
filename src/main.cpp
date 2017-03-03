@@ -36,6 +36,9 @@ void flip() {
 }
 
 void readPC() {
+  // Disable the ISR during handling
+  pc.attach(null);
+
   // Note: you need to actually read from the serial to clear the RX interrupt
   //char _buffer[128];
   string holder;
@@ -82,6 +85,8 @@ void readPC() {
   printf("%s\n", holder.c_str());
   printf("period is %d ms\n", period);
   //led1 = !led1;
+  // Restore ISR when everything is done:
+  pc.attach(&readPC);
 }
 
 
