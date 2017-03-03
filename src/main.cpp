@@ -45,7 +45,7 @@ void readPC() {
   // ccles: number of periods to run
   int period;
   int cycles;
-  int stepsA, directionA, stepsB, directionB;
+  int stepsA, directionA, stepsB, directionB, speedA=300, speedB=300;
   double factor;
 
   char temp;
@@ -64,16 +64,18 @@ void readPC() {
     factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
     stepsA = cJSON_GetObjectItem(json, "stepsA")->valueint;
     directionA = cJSON_GetObjectItem(json, "directionA")->valueint;
+    speedA = cJSON_GetObjectItem(json, "speedA")->valueint;
     stepsB = cJSON_GetObjectItem(json, "stepsB")->valueint;
     directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
+    speedB = cJSON_GetObjectItem(json, "speedB")->valueint;
     cJSON_Delete(json);
   }
 
   led1.period_ms(period);
   led1.write(0.5f);
   // Move Stepper Motor
-  stepperA.step(stepsA, directionA, 300, false);
-  stepperB.step(stepsB, directionB, 300, false);
+  stepperA.step(stepsA, directionA, speedA, false);
+  stepperB.step(stepsB, directionB, speedB, false);
   // Generate Wave
   sawTooth.setWave(factor, period);
   sawTooth.waveOut(cycles);
