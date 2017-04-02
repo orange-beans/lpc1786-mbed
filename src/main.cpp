@@ -27,6 +27,9 @@ Flasher led4(LED4, 2);
 stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
 
+// Limit switch checking
+
+
 void flip2() {
   led1 = !led1;
 }
