@@ -28,6 +28,11 @@ stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
 
 // Limit switch checking
+InterruptIn xHome(p21);
+InterruptIn xEnd(p22);
+InterruptIn yHome(p23);
+InterruptIn yEnd(p24);
+string interruptIndicator = "";
 
 
 void flip2() {
@@ -36,6 +41,26 @@ void flip2() {
 
 void flip() {
   led2 = !led2;
+}
+
+void sendError(string error) {
+  printf("{ \"error\": \"%s\" }\n", error.c_str());
+}
+
+void handleXHome() {
+  sendError("Reaching X-Axis Homeing Limit");
+}
+
+void handleXEnd() {
+
+}
+
+void handleYHome() {
+
+}
+
+void handleYEnd() {
+
 }
 
 void readPC() {
@@ -99,6 +124,9 @@ int main() {
   pc.attach(&readPC);
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
+
+  xHome.fall(&handleXHome);
+
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
   while(1) {
