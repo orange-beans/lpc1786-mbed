@@ -4,7 +4,11 @@
 #include <Flasher.h>
 #include <SawTooth.h>
 #include <Stepper.h>
+#include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
+
+// Servo testing
+Servo myServo(p25);
 
 // DAC pin18
 //AnalogOut aout(p18);
@@ -129,7 +133,7 @@ int main() {
   yHome.rise(&handleYHome);
   xEnd.rise(&handleXEnd);
   yEnd.rise(&handleYEnd);
-  
+
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
   while(1) {
@@ -137,5 +141,9 @@ int main() {
     //led4.flash(3);
     //pc.printf("testing\n");
     //wait(1.0f);
+    for(float p=0; p<1.0; p += 0.1) {
+      myServo = p;
+      wait(0.2);
+    }
   }
 }
