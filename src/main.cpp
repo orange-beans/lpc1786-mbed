@@ -48,19 +48,19 @@ void sendError(string error) {
 }
 
 void handleXHome() {
-  sendError("Reaching X-Axis Homeing Limit");
+  sendError("Reaching X-Axis Home Limit");
 }
 
 void handleXEnd() {
-
+  sendError("Reaching X-Axis End Limit");
 }
 
 void handleYHome() {
-
+ sendError("Reaching Y-Axis Home Limit");
 }
 
 void handleYEnd() {
-
+ sendError("Reaching Y-Axis End Limit");
 }
 
 void readPC() {
@@ -125,8 +125,11 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
 
-  xHome.fall(&handleXHome);
-
+  xHome.rise(&handleXHome);
+  yHome.rise(&handleYHome);
+  xEnd.rise(&handleXEnd);
+  yEnd.rise(&handleYEnd);
+  
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
   while(1) {
