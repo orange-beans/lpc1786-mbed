@@ -30,12 +30,15 @@ Flasher led4(LED4, 2);
 // stepperB is at connector P4
 stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
+DigitalOut resetA(p11);
+DigitalOut resetB(p12);
 
 // Limit switch checking
-InterruptIn xHome(p21);
-InterruptIn xEnd(p22);
-InterruptIn yHome(p23);
-InterruptIn yEnd(p24);
+PwmOut buzzer(p21);
+InterruptIn xHome(p22);
+InterruptIn xEnd(p23);
+InterruptIn yHome(p24);
+InterruptIn yEnd(p25);
 string interruptIndicator = "";
 
 
@@ -47,7 +50,36 @@ void flip() {
   led2 = !led2;
 }
 
+void disableStepper() {
+  resetA = 0;
+  resetB = 0;
+}
+
+void enableStepper() {
+  resetA = 1;
+  resetB = 1;
+}
+
+void onAlarm() {
+  buzzer.period_ms(1000);
+  buzzer.write(0.5f);
+}
+
+void offAlarm() {
+  buzzer.write(0);
+}
+
+void clearError(int code) {
+  if (code==0) return;
+  if (code==1) {
+    offAlarm();
+    enableStepper();
+  }
+}
+
 void sendError(string error) {
+  disableStepper();
+  //onAlarm();
   printf("{ \"error\": \"%s\" }\n", error.c_str());
 }
 
@@ -83,6 +115,8 @@ void readPC() {
   int stepsA, directionA, stepsB, directionB, speedA=300, speedB=300;
   double factor;
 
+  int errorStatus=0;
+
   char temp;
   while(temp != '\n') {
     temp = pc.getc();
@@ -103,6 +137,8 @@ void readPC() {
     stepsB = cJSON_GetObjectItem(json, "stepsB")->valueint;
     directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
     speedB = cJSON_GetObjectItem(json, "speedB")->valueint;
+
+    errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
     cJSON_Delete(json);
   }
 
@@ -116,7 +152,8 @@ void readPC() {
   sawTooth.waveOut(cycles);
   printf("%s\n", holder.c_str());
   printf("period is %d ms\n", period);
-  //led1 = !led1;
+  // Clear error only when PC issues command
+  clearError(errorStatus);
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
@@ -136,14 +173,14 @@ int main() {
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
-  while(1) {
-    //led3.flash(1);
-    //led4.flash(3);
-    //pc.printf("testing\n");
-    //wait(1.0f);
-    for(float p=0; p<1.0; p += 0.1) {
-      myServo = p;
-      wait(0.2);
-    }
-  }
+  // while(1) {
+  //   //led3.flash(1);
+  //   //led4.flash(3);
+  //   //pc.printf("testing\n");
+  //   //wait(1.0f);
+  //   for(float p=0; p<1.0; p += 0.1) {
+  //     myServo = p;
+  //     wait(0.2);
+  //   }
+  // }
 }
