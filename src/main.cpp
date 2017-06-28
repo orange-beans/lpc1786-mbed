@@ -7,6 +7,14 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
+// Pin assigment
+// p25: Servo
+// p18: Sawtooth
+// p5, p6, p7, p8: Stepper
+// p11, p12: Reset
+// p21, p22, p23, p24, p25: Limit Switch
+// p26, p27, p28: LED Control
+
 // Servo testing
 Servo myServo(p25);
 
@@ -40,6 +48,11 @@ InterruptIn xEnd(p23);
 InterruptIn yHome(p24);
 InterruptIn yEnd(p25);
 string interruptIndicator = "";
+
+// LED Control
+DigitalOut highPowerLED1(p26);
+DigitalOut highPowerLED2(p27);
+DigitalOut highPowerLED3(p28);
 
 
 void flip2() {
@@ -112,7 +125,8 @@ void readPC() {
   // ccles: number of periods to run
   int period;
   int cycles;
-  int stepsA, directionA, stepsB, directionB, speedA=300, speedB=300;
+  int stepsA=0, directionA=0, stepsB=0, directionB=0, speedA=300, speedB=300;
+  int highPowerLED1_On=0, highPowerLED2_On=0, highPowerLED3_On=0;
   double factor;
 
   int errorStatus=0;
@@ -138,6 +152,10 @@ void readPC() {
     directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
     speedB = cJSON_GetObjectItem(json, "speedB")->valueint;
 
+    highPowerLED1_On = cJSON_GetObjectItem(json, "led1")->valueint;
+    highPowerLED2_On = cJSON_GetObjectItem(json, "led2")->valueint;
+    highPowerLED3_On = cJSON_GetObjectItem(json, "led3")->valueint;
+
     errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
     cJSON_Delete(json);
   }
@@ -150,6 +168,11 @@ void readPC() {
   // Generate Wave
   sawTooth.setWave(factor, period);
   sawTooth.waveOut(cycles);
+  // High Power LED
+  highPowerLED1 = highPowerLED1_On;
+  highPowerLED2 = highPowerLED2_On;
+  highPowerLED3 = highPowerLED3_On;
+
   printf("%s\n", holder.c_str());
   printf("period is %d ms\n", period);
   // Clear error only when PC issues command
