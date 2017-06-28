@@ -34,7 +34,7 @@ stepper::stepper(PinName clk, PinName dir) : _clk(clk), _dir(dir) {
     _clk = 0, _dir = 0;
 }
 
-void stepper::step(int n_steps, bool direction, int speed, bool accel) {
+void stepper::step(int n_steps = 0, bool direction = 0, int speed = 300, bool accel = false) {
     int accelspeed;
     if(accel) accelspeed = START_STOP_SPEED;
     else accelspeed = speed;

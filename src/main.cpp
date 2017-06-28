@@ -5,7 +5,7 @@
 #include <SawTooth.h>
 #include <Stepper.h>
 #include <Servo.h>
-Serial pc(USBTX, USBRX, 115200);
+Serial pc(USBTX, USBRX, 9600);
 
 // Pin assigment
 // p25: Servo
@@ -127,6 +127,7 @@ void readPC() {
   int cycles;
   int stepsA=0, directionA=0, stepsB=0, directionB=0, speedA=300, speedB=300;
   int highPowerLED1_On=0, highPowerLED2_On=0, highPowerLED3_On=0;
+
   double factor;
 
   int errorStatus=0;
@@ -138,6 +139,7 @@ void readPC() {
   }
   if (holder.length() < 10) return;
 
+  printf("Before\n");
   json = cJSON_Parse(holder.c_str());
   if (!json) {
     printf("Error before: [%s]\n", cJSON_GetErrorPtr());
@@ -159,6 +161,7 @@ void readPC() {
     errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
     cJSON_Delete(json);
   }
+  printf("After %d\n", stepsA);
 
   led1.period_ms(period);
   led1.write(0.5f);
@@ -196,14 +199,14 @@ int main() {
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
-  // while(1) {
-  //   //led3.flash(1);
-  //   //led4.flash(3);
-  //   //pc.printf("testing\n");
-  //   //wait(1.0f);
-  //   for(float p=0; p<1.0; p += 0.1) {
-  //     myServo = p;
-  //     wait(0.2);
-  //   }
-  // }
+  while(1) {
+    //led3.flash(1);
+    //led4.flash(3);
+    //pc.printf("testing\n");
+    //wait(1.0f);
+    // for(float p=0; p<1.0; p += 0.1) {
+    //   myServo = p;
+    //   wait(0.2);
+    // }
+  }
 }

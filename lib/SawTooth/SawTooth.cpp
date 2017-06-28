@@ -19,7 +19,7 @@ SawTooth::SawTooth(PinName pin) : _pin(pin) {
   updateTable();
 }
 
-void SawTooth::waveOut(uint16_t n) {
+void SawTooth::waveOut(uint16_t n = 0) {
   // Run for n times
   for ( int j = 0; j < n; j++) {
     // This is a single-shot wave
@@ -29,7 +29,7 @@ void SawTooth::waveOut(uint16_t n) {
   }
 }
 
-void SawTooth::setWave(double factor, uint16_t period) {
+void SawTooth::setWave(double factor = 1.0, uint16_t period = 1000) {
   // if (period >= FIXED_PERIOD) {
   //   length = FIXED_LENGTH;
   // } else {
