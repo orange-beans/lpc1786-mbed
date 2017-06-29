@@ -43,10 +43,10 @@ DigitalOut resetB(p12);
 
 // Limit switch checking
 PwmOut buzzer(p21);
-InterruptIn xHome(p22);
-InterruptIn xEnd(p23);
-InterruptIn yHome(p24);
-InterruptIn yEnd(p25);
+InterruptIn limitSwitch1(p22);
+InterruptIn limitSwitch2(p23);
+InterruptIn limitSwitch3(p24);
+InterruptIn limitSwitch4(p25);
 string interruptIndicator = "";
 
 // LED Control
@@ -82,35 +82,78 @@ void offAlarm() {
   buzzer.write(0);
 }
 
-void clearError(int code) {
-  if (code==0) return;
-  if (code==1) {
-    offAlarm();
-    enableStepper();
+void moveForward() {
+  stepperA.step(10000, 1, 300, false);
+  stepperB.step(10000, 1, 300, false);
+}
+
+void moveBackward() {
+  stepperA.step(10000, -1, 300, false);
+  stepperB.step(10000, -1, 300, false);
+}
+
+void moveMotor(int pos) {
+  enableStepper();
+  switch (pos) {
+    case 1:
+      moveBackward();
+      break;
+    case 2:
+      moveForward();
+      break;
+    case 3:
+      moveForward();
+      break;
+    default:
+      break;
   }
 }
 
-void sendError(string error) {
+void triggerLED(int led_number) {
+  switch (led_number) {
+    case 1:
+      highPowerLED1 = 1;
+      break;
+    case 2:
+      highPowerLED2 = 1;
+      break;
+    case 3:
+      highPowerLED3 = 1;
+      break;
+    default:
+      break;
+  }
+
+  highPowerLED1 = 0;
+  highPowerLED2 = 0;
+  highPowerLED3 = 0;
+  return;
+}
+
+void sendFeedback(string paraName,int para) {
+  printf("{ \"%s\": \"%d\" }\n", paraName.c_str(), para);
+}
+
+void onPosition1() {
   disableStepper();
-  //onAlarm();
-  printf("{ \"error\": \"%s\" }\n", error.c_str());
+  sendFeedback("position", 1);
 }
 
-void handleXHome() {
-  sendError("Reaching X-Axis Home Limit");
+void onPosition2() {
+  disableStepper();
+  sendFeedback("position", 2);
 }
 
-void handleXEnd() {
-  sendError("Reaching X-Axis End Limit");
+void onPosition3() {
+  disableStepper();
+  sendFeedback("position", 3);
 }
 
-void handleYHome() {
- sendError("Reaching Y-Axis Home Limit");
+void onPosition4() {
+  disableStepper();
+  sendFeedback("position", 4);
 }
 
-void handleYEnd() {
- sendError("Reaching Y-Axis End Limit");
-}
 
 void readPC() {
   // Disable the ISR during handling
@@ -123,12 +166,7 @@ void readPC() {
   // parameters list
   // factor: scale of 3V
   // ccles: number of periods to run
-  int period;
-  int cycles;
-  int stepsA=0, directionA=0, stepsB=0, directionB=0, speedA=300, speedB=300;
-  int highPowerLED1_On=0, highPowerLED2_On=0, highPowerLED3_On=0;
-
-  double factor;
+  int move=0, trigger=0;
 
   int errorStatus=0;
 
@@ -137,53 +175,30 @@ void readPC() {
     temp = pc.getc();
     holder += temp;
   }
-  if (holder.length() < 10) return;
+  if (holder.length() < 5) return;
 
-  printf("Before\n");
   json = cJSON_Parse(holder.c_str());
   if (!json) {
     printf("Error before: [%s]\n", cJSON_GetErrorPtr());
   } else {
-    period = cJSON_GetObjectItem(json, "period")->valueint;
-    cycles = cJSON_GetObjectItem(json, "cycles")->valueint;
-    factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
-    stepsA = cJSON_GetObjectItem(json, "stepsA")->valueint;
-    directionA = cJSON_GetObjectItem(json, "directionA")->valueint;
-    speedA = cJSON_GetObjectItem(json, "speedA")->valueint;
-    stepsB = cJSON_GetObjectItem(json, "stepsB")->valueint;
-    directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
-    speedB = cJSON_GetObjectItem(json, "speedB")->valueint;
-
-    highPowerLED1_On = cJSON_GetObjectItem(json, "led1")->valueint;
-    highPowerLED2_On = cJSON_GetObjectItem(json, "led2")->valueint;
-    highPowerLED3_On = cJSON_GetObjectItem(json, "led3")->valueint;
-
-    errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
+    move = cJSON_GetObjectItem(json, "move")->valueint;
+    trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
     cJSON_Delete(json);
   }
-  printf("After %d\n", stepsA);
 
-  led1.period_ms(period);
-  led1.write(0.5f);
   // Move Stepper Motor
-  stepperA.step(stepsA, directionA, speedA, false);
-  stepperB.step(stepsB, directionB, speedB, false);
-  // Generate Wave
-  sawTooth.setWave(factor, period);
-  sawTooth.waveOut(cycles);
-  // High Power LED
-  highPowerLED1 = highPowerLED1_On;
-  highPowerLED2 = highPowerLED2_On;
-  highPowerLED3 = highPowerLED3_On;
+  if (move != 0) {
+    moveMotor(move);
+  }
+
+  if (trigger !=0) {
+    triggerLED(trigger);
+  }
 
   printf("%s\n", holder.c_str());
-  printf("period is %d ms\n", period);
-  // Clear error only when PC issues command
-  clearError(errorStatus);
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
-
 
 
 int main() {
@@ -192,10 +207,10 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
 
-  xHome.rise(&handleXHome);
-  yHome.rise(&handleYHome);
-  xEnd.rise(&handleXEnd);
-  yEnd.rise(&handleYEnd);
+  limitSwitch1.rise(&onPosition1);
+  limitSwitch2.rise(&onPosition2);
+  limitSwitch3.rise(&onPosition3);
+  limitSwitch4.rise(&onPosition4);
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
