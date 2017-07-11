@@ -5,7 +5,7 @@
 #include <SawTooth.h>
 #include <Stepper.h>
 #include <Servo.h>
-Serial pc(USBTX, USBRX, 9600);
+Serial pc(USBTX, USBRX, 115200);
 
 // Pin assigment
 // p25: Servo
@@ -44,9 +44,9 @@ DigitalOut resetB(p12);
 // Limit switch checking
 PwmOut buzzer(p21);
 InterruptIn limitSwitch1(p22);
-InterruptIn limitSwitch2(p23);
-InterruptIn limitSwitch3(p24);
-InterruptIn limitSwitch4(p25);
+InterruptIn limitSwitch2(p24);
+InterruptIn limitSwitch3(p25);
+//InterruptIn limitSwitch4(p25);
 string interruptIndicator = "";
 
 // LED Control
@@ -131,7 +131,7 @@ void triggerLED(int led_number) {
 }
 
 void sendFeedback(string paraName,int para) {
-  printf("{ \"%s\": \"%d\" }\n", paraName.c_str(), para);
+  printf("{ \"%s\": %d }\n", paraName.c_str(), para);
 }
 
 void onPosition1() {
@@ -149,10 +149,10 @@ void onPosition3() {
   sendFeedback("position", 3);
 }
 
-void onPosition4() {
-  disableStepper();
-  sendFeedback("position", 4);
-}
+// void onPosition4() {
+//   disableStepper();
+//   sendFeedback("position", 4);
+// }
 
 
 void readPC() {
@@ -195,7 +195,7 @@ void readPC() {
     triggerLED(trigger);
   }
 
-  printf("%s\n", holder.c_str());
+  printf("{ \"status\": \"ok\" }\n");
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
@@ -210,7 +210,7 @@ int main() {
   limitSwitch1.rise(&onPosition1);
   limitSwitch2.rise(&onPosition2);
   limitSwitch3.rise(&onPosition3);
-  limitSwitch4.rise(&onPosition4);
+  //limitSwitch4.rise(&onPosition4);
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
@@ -218,7 +218,9 @@ int main() {
     //led3.flash(1);
     //led4.flash(3);
     //pc.printf("testing\n");
-    //wait(1.0f);
+    onAlarm();
+    wait(5.0f);
+    offAlarm();
     // for(float p=0; p<1.0; p += 0.1) {
     //   myServo = p;
     //   wait(0.2);
