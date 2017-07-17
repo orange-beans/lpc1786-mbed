@@ -137,16 +137,19 @@ void sendFeedback(string paraName,int para) {
 void onPosition1() {
   disableStepper();
   sendFeedback("position", 1);
+  wait_ms(200);
 }
 
 void onPosition2() {
   disableStepper();
   sendFeedback("position", 2);
+  wait_ms(200);
 }
 
 void onPosition3() {
   disableStepper();
   sendFeedback("position", 3);
+  wait_ms(200);
 }
 
 // void onPosition4() {
