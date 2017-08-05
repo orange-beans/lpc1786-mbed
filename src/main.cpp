@@ -7,6 +7,8 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
+#define MOTOR_DISTANCE 1000
+
 // Pin assigment
 // p25: Servo
 // p18: Sawtooth
@@ -83,13 +85,13 @@ void offAlarm() {
 }
 
 void moveForward() {
-  stepperA.step(10000, 1, 300, false);
-  stepperB.step(10000, 1, 300, false);
+  stepperA.step(MOTOR_DISTANCE, 1, 300, false);
+  stepperB.step(MOTOR_DISTANCE, 1, 300, false);
 }
 
 void moveBackward() {
-  stepperA.step(10000, -1, 300, false);
-  stepperB.step(10000, -1, 300, false);
+  stepperA.step(MOTOR_DISTANCE, -1, 300, false);
+  stepperB.step(MOTOR_DISTANCE, -1, 300, false);
 }
 
 void moveMotor(int pos) {
@@ -135,19 +137,19 @@ void sendFeedback(string paraName,int para) {
 }
 
 void onPosition1() {
-  disableStepper();
+  //disableStepper();
   sendFeedback("position", 1);
   wait_ms(200);
 }
 
 void onPosition2() {
-  disableStepper();
+  //disableStepper();
   sendFeedback("position", 2);
   wait_ms(200);
 }
 
 void onPosition3() {
-  disableStepper();
+  //disableStepper();
   sendFeedback("position", 3);
   wait_ms(200);
 }
@@ -199,6 +201,7 @@ void readPC() {
   }
 
   printf("{ \"status\": \"ok\" }\n");
+  printf("%s\n", holder.c_str());
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
