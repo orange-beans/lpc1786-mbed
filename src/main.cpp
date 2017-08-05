@@ -7,7 +7,12 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
-#define MOTOR_DISTANCE 1000
+#define MOTOR_DISTANCE 5000
+
+// Global variables
+int COMMAND_FLAG = 0;
+// ccles: number of periods to run
+int move=0, trigger=0, speed = 1600;
 
 // Pin assigment
 // p25: Servo
@@ -84,27 +89,27 @@ void offAlarm() {
   buzzer.write(0);
 }
 
-void moveForward() {
-  stepperA.step(MOTOR_DISTANCE, 1, 300, false);
-  stepperB.step(MOTOR_DISTANCE, 1, 300, false);
+void moveForward(int speed) {
+  //stepperA.step(MOTOR_DISTANCE, 1, speed, false);
+  stepperB.step(MOTOR_DISTANCE, 1, speed, false);
 }
 
-void moveBackward() {
-  stepperA.step(MOTOR_DISTANCE, -1, 300, false);
-  stepperB.step(MOTOR_DISTANCE, -1, 300, false);
+void moveBackward(int speed) {
+  //stepperA.step(MOTOR_DISTANCE, 0, speed, false);
+  stepperB.step(MOTOR_DISTANCE, 0, speed, false);
 }
 
-void moveMotor(int pos) {
+void moveMotor(int pos, int speed) {
   enableStepper();
   switch (pos) {
     case 1:
-      moveBackward();
+      moveBackward(speed);
       break;
     case 2:
-      moveForward();
+      moveForward(speed);
       break;
     case 3:
-      moveForward();
+      moveForward(speed);
       break;
     default:
       break;
@@ -137,21 +142,21 @@ void sendFeedback(string paraName,int para) {
 }
 
 void onPosition1() {
-  //disableStepper();
+  disableStepper();
   sendFeedback("position", 1);
-  wait_ms(200);
+  wait_ms(350);
 }
 
 void onPosition2() {
-  //disableStepper();
+  disableStepper();
   sendFeedback("position", 2);
-  wait_ms(200);
+  wait_ms(350);
 }
 
 void onPosition3() {
-  //disableStepper();
+  disableStepper();
   sendFeedback("position", 3);
-  wait_ms(200);
+  wait_ms(350);
 }
 
 // void onPosition4() {
@@ -171,7 +176,7 @@ void readPC() {
   // parameters list
   // factor: scale of 3V
   // ccles: number of periods to run
-  int move=0, trigger=0;
+  //int move=0, trigger=0;
 
   int errorStatus=0;
 
@@ -188,20 +193,28 @@ void readPC() {
   } else {
     move = cJSON_GetObjectItem(json, "move")->valueint;
     trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
+    //speed = cJSON_GetObjectItem(json, "speed")->valueint;
     cJSON_Delete(json);
   }
 
+  // Set COMMAND_FLAG to true, ready to handle inside main
+
+
+
   // Move Stepper Motor
+  //printf("move is %d", move);
   if (move != 0) {
-    moveMotor(move);
+    COMMAND_FLAG = 1;
+    //moveMotor(move, speed);
   }
 
   if (trigger !=0) {
-    triggerLED(trigger);
+    //triggerLED(trigger);
   }
 
-  printf("{ \"status\": \"ok\" }\n");
-  printf("%s\n", holder.c_str());
+  //printf("{ \"status\": \"ok\" }\n");
+  //printf("command flag is %d", COMMAND_FLAG);
+  //printf("%s\n", holder.c_str());
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
@@ -209,6 +222,8 @@ void readPC() {
 
 int main() {
   led2 = 1;
+  resetA = 1;
+  resetB = 1;
   pc.attach(&readPC);
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
@@ -220,13 +235,24 @@ int main() {
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
+
+  led3.flash(1);
+  led4.flash(3);
+
   while(1) {
+    if (COMMAND_FLAG == 1) {
+      //pc.printf("To Move Motor %d", move);
+      COMMAND_FLAG = 0;
+      moveMotor(move, speed);
+      triggerLED(trigger);
+    }
     //led3.flash(1);
     //led4.flash(3);
     //pc.printf("testing\n");
-    onAlarm();
-    wait(5.0f);
-    offAlarm();
+    wait(0.2f);
+    // onAlarm();
+    // wait(5.0f);
+    // offAlarm();
     // for(float p=0; p<1.0; p += 0.1) {
     //   myServo = p;
     //   wait(0.2);
