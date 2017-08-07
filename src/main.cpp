@@ -7,10 +7,11 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
-#define MOTOR_DISTANCE 5000
+#define MOTOR_DISTANCE 10000
+#define RAMP_STEPS 25
 
 // Global variables
-int COMMAND_FLAG = 0;
+int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
 int move=0, trigger=0, speed = 1600;
 
@@ -30,6 +31,7 @@ Servo myServo(p25);
 
 Ticker flipper;
 Ticker flipper2;
+Ticker ticker;
 PwmOut led1(LED1);
 //DigitalOut led1(LED1);
 DigitalOut led2(LED2);
@@ -91,12 +93,23 @@ void offAlarm() {
 
 void moveForward(int speed) {
   //stepperA.step(MOTOR_DISTANCE, 1, speed, false);
-  stepperB.step(MOTOR_DISTANCE, 1, speed, false);
+  // for (int i=0; i < RAMP_STEPS; i++) {
+  //   stepperB.step(static_cast<int>(MOTOR_DISTANCE/RAMP_STEPS/4), 1, static_cast<int>(speed*i/RAMP_STEPS), false);
+  //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
+  // }
+  stepperB.step(MOTOR_DISTANCE/4, 1, speed, true);
+  stepperB.step(MOTOR_DISTANCE*3/4, 1, speed, false);
 }
 
 void moveBackward(int speed) {
   //stepperA.step(MOTOR_DISTANCE, 0, speed, false);
-  stepperB.step(MOTOR_DISTANCE, 0, speed, false);
+  // for (int i=0; i < RAMP_STEPS; i++) {
+  //   stepperB.step(static_cast<int>(MOTOR_DISTANCE/RAMP_STEPS/4), 0, static_cast<int>(speed*i/RAMP_STEPS), false);
+  //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
+  //   //stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
+  // }
+  stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
+  stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
 }
 
 void moveMotor(int pos, int speed) {
@@ -137,6 +150,8 @@ void triggerLED(int led_number) {
   return;
 }
 
+
+
 void sendFeedback(string paraName,int para) {
   printf("{ \"%s\": %d }\n", paraName.c_str(), para);
 }
@@ -144,21 +159,55 @@ void sendFeedback(string paraName,int para) {
 void onPosition1() {
   disableStepper();
   sendFeedback("position", 1);
-  wait_ms(350);
+  //wait_ms(50);
 }
 
 void onPosition2() {
   disableStepper();
   sendFeedback("position", 2);
-  wait_ms(350);
+  //wait_ms(50);
 }
 
 void onPosition3() {
   disableStepper();
   sendFeedback("position", 3);
-  wait_ms(350);
+  //wait_ms(50);
 }
 
+
+void checkPin() {
+  if (limitSwitch1 == 1 || limitSwitch2 == 1 || limitSwitch3 == 1) {
+    disableStepper();
+  }
+
+  // Rising
+  if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 0) {
+    LIMIT_SWITCH1 = 1;
+    onPosition1();
+  } else {
+    if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 1) {
+      LIMIT_SWITCH1 = 0;
+    }
+  }
+
+  if (limitSwitch2 == 1 && LIMIT_SWITCH2 == 0) {
+    LIMIT_SWITCH2 = 1;
+    onPosition2();
+  } else {
+    if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
+      LIMIT_SWITCH2 = 0;
+    }
+  }
+
+  if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
+    LIMIT_SWITCH3 = 1;
+    onPosition3();
+  } else {
+    if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
+      LIMIT_SWITCH3 = 0;
+    }
+  }
+}
 // void onPosition4() {
 //   disableStepper();
 //   sendFeedback("position", 4);
@@ -193,7 +242,7 @@ void readPC() {
   } else {
     move = cJSON_GetObjectItem(json, "move")->valueint;
     trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
-    //speed = cJSON_GetObjectItem(json, "speed")->valueint;
+    speed = cJSON_GetObjectItem(json, "speed")->valueint;
     cJSON_Delete(json);
   }
 
@@ -224,13 +273,19 @@ int main() {
   led2 = 1;
   resetA = 1;
   resetB = 1;
+  // Before attaching callbacks clear any pending interrupts
+  // To solve the auto-triggering interrupt problem
+  LPC_GPIOINT->IO0IntClr = 0xFFFFFFFFUL;
+  LPC_GPIOINT->IO2IntClr = 0xFFFFFFFFUL;
+
   pc.attach(&readPC);
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
+  ticker.attach(&checkPin, 0.1);
 
-  limitSwitch1.rise(&onPosition1);
-  limitSwitch2.rise(&onPosition2);
-  limitSwitch3.rise(&onPosition3);
+  //limitSwitch1.rise(&onPosition1);
+  //limitSwitch2.rise(&onPosition2);
+  //limitSwitch3.rise(&onPosition3);
   //limitSwitch4.rise(&onPosition4);
 
   // spin in a main loop. flipper will interrupt it to call flip
@@ -249,7 +304,7 @@ int main() {
     //led3.flash(1);
     //led4.flash(3);
     //pc.printf("testing\n");
-    wait(0.2f);
+    wait(0.1f);
     // onAlarm();
     // wait(5.0f);
     // offAlarm();
