@@ -7,13 +7,13 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
-#define MOTOR_DISTANCE 10000
+#define MOTOR_DISTANCE 2500
 #define RAMP_STEPS 25
 
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
-int move=0, trigger=0, speed = 1600;
+int move=0, trigger=0, speed = 2100;
 
 // Pin assigment
 // p25: Servo
@@ -144,6 +144,8 @@ void triggerLED(int led_number) {
       break;
   }
 
+  wait(0.1f);
+
   highPowerLED1 = 0;
   highPowerLED2 = 0;
   highPowerLED3 = 0;
@@ -176,8 +178,9 @@ void onPosition3() {
 
 
 void checkPin() {
+  // Don't disable Motor continously
   if (limitSwitch1 == 1 || limitSwitch2 == 1 || limitSwitch3 == 1) {
-    disableStepper();
+    //disableStepper();
   }
 
   // Rising
@@ -191,8 +194,11 @@ void checkPin() {
   }
 
   if (limitSwitch2 == 1 && LIMIT_SWITCH2 == 0) {
-    LIMIT_SWITCH2 = 1;
-    onPosition2();
+    // Don't trigger on the way back to Position1
+    if (move !=1) {
+      LIMIT_SWITCH2 = 1;
+      onPosition2();
+    }
   } else {
     if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
       LIMIT_SWITCH2 = 0;
@@ -200,8 +206,8 @@ void checkPin() {
   }
 
   if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
-    LIMIT_SWITCH3 = 1;
-    onPosition3();
+      LIMIT_SWITCH3 = 1;
+      onPosition3();
   } else {
     if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
       LIMIT_SWITCH3 = 0;
@@ -290,6 +296,16 @@ int main() {
 
   // spin in a main loop. flipper will interrupt it to call flip
   //sawTooth.waveOut(1);
+
+  highPowerLED1 = 1;
+  highPowerLED2 = 1;
+  highPowerLED3 = 1;
+
+  wait(0.1f);
+
+  highPowerLED1 = 0;
+  highPowerLED2 = 0;
+  highPowerLED3 = 0;
 
   led3.flash(1);
   led4.flash(3);
