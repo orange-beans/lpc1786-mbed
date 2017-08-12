@@ -6,14 +6,15 @@
 #include <Stepper.h>
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
-
-#define MOTOR_DISTANCE 1000
+// 12V speed set at 400 steps/second
+// 488 Just right
+#define MOTOR_DISTANCE 482
 #define RAMP_STEPS 25
 
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
-int move=0, trigger=0, speed = 2100;
+int move=0, trigger=0, speed = 350;
 
 // Pin assigment
 // p25: Servo
@@ -49,6 +50,9 @@ stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
 DigitalOut resetA(p11);
 DigitalOut resetB(p12);
+
+Serial rs485(p13, p14, 115200);
+DigitalOut RST_EN(p15);
 
 // Limit switch checking
 PwmOut buzzer(p21);
@@ -154,27 +158,34 @@ void triggerLED(int led_number) {
   return;
 }
 
-
-
 void sendFeedback(string paraName,int para) {
   printf("{ \"%s\": %d }\n", paraName.c_str(), para);
+}
+
+void sendRS485(string message) {
+  RST_EN = 1;
+  rs485.printf("{ \"%s\": %d }\n", message.c_str());
+  RST_EN = 0;
 }
 
 void onPosition1() {
   disableStepper();
   sendFeedback("position", 1);
+  sendRS485("cc_position, 1");
   //wait_ms(50);
 }
 
 void onPosition2() {
   disableStepper();
   sendFeedback("position", 2);
+  sendRS485("cc_position, 2");
   //wait_ms(50);
 }
 
 void onPosition3() {
   disableStepper();
   sendFeedback("position", 3);
+  sendRS485("cc_position, 3");
   //wait_ms(50);
 }
 
@@ -216,12 +227,64 @@ void checkPin() {
     }
   }
 }
-// void onPosition4() {
-//   disableStepper();
-//   sendFeedback("position", 4);
-// }
+
+// Read From 485
+void readRS485() {
+  // Disable the ISR during handling
+  rs485.attach(0);
+
+  // Note: you need to actually read from the serial to clear the RX interrupt
+  //char _buffer[128];
+  string holder;
+  cJSON *json;
+  // parameters list
+  // factor: scale of 3V
+  // ccles: number of periods to run
+  //int move=0, trigger=0;
+
+  int errorStatus=0;
+
+  char temp;
+  while(temp != '\n') {
+    temp = pc.getc();
+    holder += temp;
+  }
+  if (holder.length() < 5) return;
+
+  json = cJSON_Parse(holder.c_str());
+  if (!json) {
+    //printf("Error before: [%s]\n", cJSON_GetErrorPtr());
+    sendRS485("Error before: []\n");
+  } else {
+    move = cJSON_GetObjectItem(json, "move")->valueint;
+    trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
+    speed = cJSON_GetObjectItem(json, "speed")->valueint;
+    cJSON_Delete(json);
+  }
+
+  // Set COMMAND_FLAG to true, ready to handle inside main
 
 
+
+  // Move Stepper Motor
+  //printf("move is %d", move);
+  if (move != 0) {
+    COMMAND_FLAG = 1;
+    //moveMotor(move, speed);
+  }
+
+  if (trigger !=0) {
+    //triggerLED(trigger);
+  }
+
+  //printf("{ \"status\": \"ok\" }\n");
+  //printf("command flag is %d", COMMAND_FLAG);
+  //printf("%s\n", holder.c_str());
+  // Restore ISR when everything is done:
+  rs485.attach(&readRS485);
+}
+
+// Read From VCP
 void readPC() {
   // Disable the ISR during handling
   pc.attach(0);
@@ -281,12 +344,16 @@ int main() {
   led2 = 1;
   resetA = 1;
   resetB = 1;
+
+  RST_EN = 0;
   // Before attaching callbacks clear any pending interrupts
   // To solve the auto-triggering interrupt problem
   LPC_GPIOINT->IO0IntClr = 0xFFFFFFFFUL;
   LPC_GPIOINT->IO2IntClr = 0xFFFFFFFFUL;
 
   pc.attach(&readPC);
+  rs485.attach(&readRS485);
+
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   //flipper2.attach(&flip2, 1);
   ticker.attach(&checkPin, 0.1);

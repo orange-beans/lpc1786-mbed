@@ -28,8 +28,6 @@
 // define Library version number
 #define VERSION 0.3
 
-
-
 stepper::stepper(PinName clk, PinName dir) : _clk(clk), _dir(dir) {
     _clk = 0, _dir = 0;
 }
