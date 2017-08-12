@@ -7,7 +7,7 @@
 #include <Servo.h>
 Serial pc(USBTX, USBRX, 115200);
 
-#define MOTOR_DISTANCE 2500
+#define MOTOR_DISTANCE 1000
 #define RAMP_STEPS 25
 
 // Global variables
@@ -97,8 +97,9 @@ void moveForward(int speed) {
   //   stepperB.step(static_cast<int>(MOTOR_DISTANCE/RAMP_STEPS/4), 1, static_cast<int>(speed*i/RAMP_STEPS), false);
   //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
   // }
-  stepperB.step(MOTOR_DISTANCE/4, 1, speed, true);
-  stepperB.step(MOTOR_DISTANCE*3/4, 1, speed, false);
+  // stepperB.step(MOTOR_DISTANCE/4, 1, speed, true);
+  // stepperB.step(MOTOR_DISTANCE*3/4, 1, speed, false);
+  stepperB.step(MOTOR_DISTANCE, 1, speed, false);
 }
 
 void moveBackward(int speed) {
@@ -108,8 +109,9 @@ void moveBackward(int speed) {
   //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
   //   //stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
   // }
-  stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
-  stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
+  // stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
+  // stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
+  stepperB.step(MOTOR_DISTANCE, 0, speed, false);
 }
 
 void moveMotor(int pos, int speed) {

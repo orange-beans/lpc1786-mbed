@@ -23,7 +23,7 @@
 #include "mbed.h"
 
  // define the Stepper Motor save start/stop speed
-#define START_STOP_SPEED 300
+#define START_STOP_SPEED 100
 
 // define Library version number
 #define VERSION 0.3
@@ -50,7 +50,7 @@ void stepper::step(int n_steps = 0, bool direction = 0, int speed = 300, bool ac
         wait_us(1);
         _clk = 0;
         wait_us(1);
-        wait_us(accelspeed);
+        wait_us(1000000 / accelspeed - 8);
     }
 }
 
