@@ -11,6 +11,15 @@ Serial pc(USBTX, USBRX, 115200);
 #define MOTOR_DISTANCE 482
 #define RAMP_STEPS 25
 
+// RS485 commands set
+#define CMD_CC_ID 0x10
+#define CMD_CC_MOVE_1 0x21
+#define CMD_CC_MOVE_2 0x22
+#define CMD_CC_MOVE_3 0x23
+#define CMD_CC_TRIGGER_1 0x31
+#define CMD_CC_TRIGGER_2 0x32
+#define CMD_CC_TRIGGER_3 0x33
+
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
@@ -126,8 +135,6 @@ void moveMotor(int pos, int speed) {
       break;
     case 2:
       moveForward(speed);
-      // TODO: temp put pos2 feedback here
-      onPosition2();
       break;
     case 3:
       moveForward(speed);
@@ -245,6 +252,7 @@ void readRS485() {
   //int move=0, trigger=0;
 
   int errorStatus=0;
+  int command = 0;
 
   char temp;
   while(temp != '\n') {
@@ -253,38 +261,46 @@ void readRS485() {
   }
   if (holder.length() < 5) return;
 
+  if (holder == "cc_ID") command = CMD_CC_ID;
+  if (holder == "cc_MOVE_1") command = CMD_CC_MOVE_1;
+  if (holder == "cc_MOVE_2") command = CMD_CC_MOVE_2;
+  if (holder == "cc_MOVE_3") command = CMD_CC_MOVE_3;
+  if (holder == "cc_TRIGGER_1") command = CMD_CC_TRIGGER_1;
+  if (holder == "cc_TRIGGER_2") command = CMD_CC_TRIGGER_2;
+  if (holder == "cc_TRIGGER_3") command = CMD_CC_TRIGGER_3;
+
   // Parse RS485 commands
-  switch (holder) {
-    case "cc_ID":
+  switch (command) {
+    case CMD_CC_ID:
       sendRS485("cc_ACK");
       break;
 
-    case "cc_MOVE_1":
+    case CMD_CC_MOVE_1:
       move = 1;
       COMMAND_FLAG = 1;
       break;
 
-    case "cc_MOVE_2":
+    case CMD_CC_MOVE_2:
       move = 2;
       COMMAND_FLAG = 1;
       break;
 
-    case "cc_MOVE_3":
+    case CMD_CC_MOVE_3:
       move = 3;
       COMMAND_FLAG = 1;
       break;
 
-    case "cc_TRIGGER_1":
+    case CMD_CC_TRIGGER_1:
       trigger = 1;
       COMMAND_FLAG = 1;
       break;
 
-    case "cc_TRIGGER_2":
+    case CMD_CC_TRIGGER_2:
       trigger = 2;
       COMMAND_FLAG = 1;
       break;
 
-    case "cc_TRIGGER_3":
+    case CMD_CC_TRIGGER_3:
       trigger = 3;
       COMMAND_FLAG = 1;
       break;
@@ -390,6 +406,10 @@ int main() {
       //pc.printf("To Move Motor %d", move);
       COMMAND_FLAG = 0;
       moveMotor(move, speed);
+      // TODO: temp put pos2 feedback here
+      if (move ==2) {
+        onPosition2();
+      }      
       triggerLED(trigger);
     }
     //led3.flash(1);
