@@ -14,7 +14,7 @@ Serial pc(USBTX, USBRX, 115200);
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
-int move=0, trigger=0, speed = 350;
+int move=0, trigger=0, speed = 330;
 
 // Pin assigment
 // p25: Servo
@@ -115,7 +115,7 @@ void moveBackward(int speed) {
   // }
   // stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
   // stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
-  stepperB.step(MOTOR_DISTANCE, 0, speed, false);
+  stepperB.step(MOTOR_DISTANCE * 2, 0, speed, false);
 }
 
 void moveMotor(int pos, int speed) {
@@ -126,6 +126,8 @@ void moveMotor(int pos, int speed) {
       break;
     case 2:
       moveForward(speed);
+      // TODO: temp put pos2 feedback here
+      onPosition2();
       break;
     case 3:
       moveForward(speed);
@@ -164,28 +166,28 @@ void sendFeedback(string paraName,int para) {
 
 void sendRS485(string message) {
   RST_EN = 1;
-  rs485.printf("{ \"%s\": %d }\n", message.c_str());
+  rs485.printf("{%s}\n", message.c_str());
   RST_EN = 0;
 }
 
 void onPosition1() {
   disableStepper();
   sendFeedback("position", 1);
-  sendRS485("cc_position, 1");
+  sendRS485("cc_position_1");
   //wait_ms(50);
 }
 
 void onPosition2() {
   disableStepper();
   sendFeedback("position", 2);
-  sendRS485("cc_position, 2");
+  sendRS485("cc_position_2");
   //wait_ms(50);
 }
 
 void onPosition3() {
   disableStepper();
   sendFeedback("position", 3);
-  sendRS485("cc_position, 3");
+  sendRS485("cc_position_3");
   //wait_ms(50);
 }
 
@@ -251,35 +253,46 @@ void readRS485() {
   }
   if (holder.length() < 5) return;
 
-  json = cJSON_Parse(holder.c_str());
-  if (!json) {
-    //printf("Error before: [%s]\n", cJSON_GetErrorPtr());
-    sendRS485("Error before: []\n");
-  } else {
-    move = cJSON_GetObjectItem(json, "move")->valueint;
-    trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
-    speed = cJSON_GetObjectItem(json, "speed")->valueint;
-    cJSON_Delete(json);
+  // Parse RS485 commands
+  switch (holder) {
+    case "cc_ID":
+      sendRS485("cc_ACK");
+      break;
+
+    case "cc_MOVE_1":
+      move = 1;
+      COMMAND_FLAG = 1;
+      break;
+
+    case "cc_MOVE_2":
+      move = 2;
+      COMMAND_FLAG = 1;
+      break;
+
+    case "cc_MOVE_3":
+      move = 3;
+      COMMAND_FLAG = 1;
+      break;
+
+    case "cc_TRIGGER_1":
+      trigger = 1;
+      COMMAND_FLAG = 1;
+      break;
+
+    case "cc_TRIGGER_2":
+      trigger = 2;
+      COMMAND_FLAG = 1;
+      break;
+
+    case "cc_TRIGGER_3":
+      trigger = 3;
+      COMMAND_FLAG = 1;
+      break;
+
+    default:
+      break;
   }
 
-  // Set COMMAND_FLAG to true, ready to handle inside main
-
-
-
-  // Move Stepper Motor
-  //printf("move is %d", move);
-  if (move != 0) {
-    COMMAND_FLAG = 1;
-    //moveMotor(move, speed);
-  }
-
-  if (trigger !=0) {
-    //triggerLED(trigger);
-  }
-
-  //printf("{ \"status\": \"ok\" }\n");
-  //printf("command flag is %d", COMMAND_FLAG);
-  //printf("%s\n", holder.c_str());
   // Restore ISR when everything is done:
   rs485.attach(&readRS485);
 }
@@ -319,22 +332,15 @@ void readPC() {
 
   // Set COMMAND_FLAG to true, ready to handle inside main
 
-
-
   // Move Stepper Motor
-  //printf("move is %d", move);
   if (move != 0) {
     COMMAND_FLAG = 1;
-    //moveMotor(move, speed);
   }
 
   if (trigger !=0) {
-    //triggerLED(trigger);
+
   }
 
-  //printf("{ \"status\": \"ok\" }\n");
-  //printf("command flag is %d", COMMAND_FLAG);
-  //printf("%s\n", holder.c_str());
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
