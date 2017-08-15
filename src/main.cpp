@@ -5,7 +5,7 @@
 #include <SawTooth.h>
 #include <Stepper.h>
 #include <Servo.h>
-Serial pc(USBTX, USBRX, 115200);
+
 // 12V speed set at 400 steps/second
 // 488 Just right
 #define MOTOR_DISTANCE 482
@@ -25,6 +25,10 @@ int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
 int move=0, trigger=0, speed = 330;
 
+Serial pc(USBTX, USBRX, 115200);
+Serial rs485(p13, p14, 115200);
+DigitalOut RST_EN(p15);
+
 // Pin assigment
 // p25: Servo
 // p18: Sawtooth
@@ -36,19 +40,12 @@ int move=0, trigger=0, speed = 330;
 // Servo testing
 Servo myServo(p25);
 
-// DAC pin18
-//AnalogOut aout(p18);
-
 Ticker flipper;
 Ticker flipper2;
 Ticker ticker;
 PwmOut led1(LED1);
-//DigitalOut led1(LED1);
 DigitalOut led2(LED2);
-//DigitalOut led3(LED3);
-//DigitalOut led4(LED4);
 
-SawTooth sawTooth(p18, 0.5);
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
@@ -59,9 +56,6 @@ stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
 DigitalOut resetA(p11);
 DigitalOut resetB(p12);
-
-Serial rs485(p13, p14, 115200);
-DigitalOut RST_EN(p15);
 
 // Limit switch checking
 PwmOut buzzer(p21);
@@ -76,6 +70,10 @@ DigitalOut highPowerLED1(p26);
 DigitalOut highPowerLED2(p27);
 DigitalOut highPowerLED3(p28);
 
+// Local Helpers
+bool isSubString(string str1, string str2) {
+  return str1.find(str2) != std::string::npos;
+}
 
 void flip2() {
   led1 = !led1;
@@ -93,15 +91,6 @@ void disableStepper() {
 void enableStepper() {
   resetA = 1;
   resetB = 1;
-}
-
-void onAlarm() {
-  buzzer.period_ms(1000);
-  buzzer.write(0.5f);
-}
-
-void offAlarm() {
-  buzzer.write(0);
 }
 
 void moveForward(int speed) {
@@ -177,24 +166,25 @@ void sendRS485(string message) {
   RST_EN = 0;
 }
 
+
 void onPosition1() {
   disableStepper();
   sendFeedback("position", 1);
-  sendRS485("cc_position_1");
+  sendRS485("cc_POSITION_1");
   //wait_ms(50);
 }
 
 void onPosition2() {
   disableStepper();
   sendFeedback("position", 2);
-  sendRS485("cc_position_2");
+  sendRS485("cc_POSITION_2");
   //wait_ms(50);
 }
 
 void onPosition3() {
   disableStepper();
   sendFeedback("position", 3);
-  sendRS485("cc_position_3");
+  sendRS485("cc_POSITION_3");
   //wait_ms(50);
 }
 
@@ -237,81 +227,6 @@ void checkPin() {
   }
 }
 
-// Read From 485
-void readRS485() {
-  // Disable the ISR during handling
-  rs485.attach(0);
-
-  // Note: you need to actually read from the serial to clear the RX interrupt
-  //char _buffer[128];
-  string holder;
-  cJSON *json;
-  // parameters list
-  // factor: scale of 3V
-  // ccles: number of periods to run
-  //int move=0, trigger=0;
-
-  int errorStatus=0;
-  int command = 0;
-
-  char temp;
-  while(temp != '\n') {
-    temp = pc.getc();
-    holder += temp;
-  }
-  if (holder.length() < 5) return;
-
-  if (holder == "cc_ID") command = CMD_CC_ID;
-  if (holder == "cc_MOVE_1") command = CMD_CC_MOVE_1;
-  if (holder == "cc_MOVE_2") command = CMD_CC_MOVE_2;
-  if (holder == "cc_MOVE_3") command = CMD_CC_MOVE_3;
-  if (holder == "cc_TRIGGER_1") command = CMD_CC_TRIGGER_1;
-  if (holder == "cc_TRIGGER_2") command = CMD_CC_TRIGGER_2;
-  if (holder == "cc_TRIGGER_3") command = CMD_CC_TRIGGER_3;
-
-  // Parse RS485 commands
-  switch (command) {
-    case CMD_CC_ID:
-      sendRS485("cc_ACK");
-      break;
-
-    case CMD_CC_MOVE_1:
-      move = 1;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_MOVE_2:
-      move = 2;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_MOVE_3:
-      move = 3;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_1:
-      trigger = 1;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_2:
-      trigger = 2;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_3:
-      trigger = 3;
-      COMMAND_FLAG = 1;
-      break;
-
-    default:
-      break;
-  }
-
-  // Restore ISR when everything is done:
-  rs485.attach(&readRS485);
-}
 
 // Read From VCP
 void readPC() {
@@ -361,6 +276,79 @@ void readPC() {
   pc.attach(&readPC);
 }
 
+void readRS485() {
+  // Disable the ISR during handling
+  rs485.attach(0);
+  // Note: you need to actually read from the serial to clear the RX interrupt
+  //char _buffer[128];
+  string holder;
+  cJSON *json;
+  // parameters list
+  // factor: scale of 3V
+  // ccles: number of periods to run
+  //int move=0, trigger=0;
+
+  int errorStatus=0;
+  int command = 0;
+
+  char temp;
+  while(temp != '\n') {
+    temp = rs485.getc();
+    holder += temp;
+  }
+  if (holder.length() < 5) return;
+
+  if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
+  if (isSubString(holder, "cc_MOVE_1")) command = CMD_CC_MOVE_1;
+  if (isSubString(holder, "cc_MOVE_2")) command = CMD_CC_MOVE_2;
+  if (isSubString(holder, "cc_MOVE_3")) command = CMD_CC_MOVE_3;
+  if (isSubString(holder, "cc_TRIGGER_1")) command = CMD_CC_TRIGGER_1;
+  if (isSubString(holder, "cc_TRIGGER_2")) command = CMD_CC_TRIGGER_2;
+  if (isSubString(holder, "cc_TRIGGER_3")) command = CMD_CC_TRIGGER_3;
+
+  // Parse RS485 commands
+  switch (command) {
+    case CMD_CC_ID:
+      sendRS485("cc_ACK");
+      break;
+
+    case CMD_CC_MOVE_1:
+      move = 1;
+      COMMAND_FLAG = 1;
+      break;
+
+    case CMD_CC_MOVE_2:
+      move = 2;
+      COMMAND_FLAG = 1;
+      break;
+
+    case CMD_CC_MOVE_3:
+      move = 3;
+      COMMAND_FLAG = 1;
+      break;
+
+    case CMD_CC_TRIGGER_1:
+      trigger = 1;
+      COMMAND_FLAG = 1;
+      break;
+
+    case CMD_CC_TRIGGER_2:
+      trigger = 2;
+      COMMAND_FLAG = 1;
+      break;
+
+    case CMD_CC_TRIGGER_3:
+      trigger = 3;
+      COMMAND_FLAG = 1;
+      break;
+
+    default:
+      break;
+  }
+
+  // Restore ISR when everything is done:
+  rs485.attach(&readRS485);
+}
 
 int main() {
   led2 = 1;
@@ -368,31 +356,6 @@ int main() {
   resetB = 1;
 
   RST_EN = 0;
-  // Before attaching callbacks clear any pending interrupts
-  // To solve the auto-triggering interrupt problem
-  LPC_GPIOINT->IO0IntClr = 0xFFFFFFFFUL;
-  LPC_GPIOINT->IO2IntClr = 0xFFFFFFFFUL;
-
-  pc.attach(&readPC);
-  rs485.attach(&readRS485);
-
-  flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
-  //flipper2.attach(&flip2, 1);
-  ticker.attach(&checkPin, 0.1);
-
-  //limitSwitch1.rise(&onPosition1);
-  //limitSwitch2.rise(&onPosition2);
-  //limitSwitch3.rise(&onPosition3);
-  //limitSwitch4.rise(&onPosition4);
-
-  // spin in a main loop. flipper will interrupt it to call flip
-  //sawTooth.waveOut(1);
-
-  highPowerLED1 = 1;
-  highPowerLED2 = 1;
-  highPowerLED3 = 1;
-
-  wait(0.1f);
 
   highPowerLED1 = 0;
   highPowerLED2 = 0;
@@ -400,6 +363,12 @@ int main() {
 
   led3.flash(1);
   led4.flash(3);
+
+  flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
+  ticker.attach(&checkPin, 0.1);
+
+  pc.attach(&readPC);
+  rs485.attach(&readRS485);
 
   while(1) {
     if (COMMAND_FLAG == 1) {
@@ -409,19 +378,11 @@ int main() {
       // TODO: temp put pos2 feedback here
       if (move ==2) {
         onPosition2();
-      }      
+      }
       triggerLED(trigger);
+      move = 0;
+      trigger = 0;
     }
-    //led3.flash(1);
-    //led4.flash(3);
-    //pc.printf("testing\n");
     wait(0.1f);
-    // onAlarm();
-    // wait(5.0f);
-    // offAlarm();
-    // for(float p=0; p<1.0; p += 0.1) {
-    //   myServo = p;
-    //   wait(0.2);
-    // }
   }
 }
