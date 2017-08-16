@@ -162,7 +162,9 @@ void sendFeedback(string paraName,int para) {
 
 void sendRS485(string message) {
   RST_EN = 1;
+  wait_us(1);
   rs485.printf("{%s}\n", message.c_str());
+  wait_us(9);
   RST_EN = 0;
 }
 
@@ -209,7 +211,7 @@ void checkPin() {
     // Don't trigger on the way back to Position1
     if (move !=1) {
       LIMIT_SWITCH2 = 1;
-      onPosition2();
+      //onPosition2();
     }
   } else {
     if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
@@ -219,7 +221,7 @@ void checkPin() {
 
   if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
       LIMIT_SWITCH3 = 1;
-      onPosition3();
+      //onPosition3();
   } else {
     if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
       LIMIT_SWITCH3 = 0;
@@ -378,6 +380,9 @@ int main() {
       // TODO: temp put pos2 feedback here
       if (move ==2) {
         onPosition2();
+      }
+      if (move ==3) {
+        onPosition3();
       }
       triggerLED(trigger);
       move = 0;
