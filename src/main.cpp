@@ -162,9 +162,9 @@ void sendFeedback(string paraName,int para) {
 
 void sendRS485(string message) {
   RST_EN = 1;
-  wait_us(1);
+  wait_ms(1);
   rs485.printf("{%s}\n", message.c_str());
-  wait_us(9);
+  wait_ms(1);
   RST_EN = 0;
 }
 
