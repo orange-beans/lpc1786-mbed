@@ -164,7 +164,9 @@ void sendRS485(string message) {
   RST_EN = 1;
   wait_ms(1);
   rs485.printf("{%s}\n", message.c_str());
-  wait_ms(1);
+  // NOTE: this delay is essiential for message to be fully transimitted
+  // increate the delay time if message found being cut half-way
+  wait_ms(2);
   RST_EN = 0;
 }
 
