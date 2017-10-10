@@ -3,9 +3,10 @@
 #include <cJSON.h>
 #include <Flasher.h>
 #include <SawTooth.h>
+#include <Pulse.h>
 #include <Stepper.h>
 #include <Servo.h>
-Serial pc(USBTX, USBRX, 9600);
+Serial pc(USBTX, USBRX, 115200);
 
 // Pin assigment
 // p25: Servo
@@ -29,7 +30,10 @@ DigitalOut led2(LED2);
 //DigitalOut led3(LED3);
 //DigitalOut led4(LED4);
 
-SawTooth sawTooth(p18, 0.5);
+//SawTooth sawTooth(p18, 0.5);
+Pulse pluse(p18);
+//DigitalOut pluse(p18);
+
 Flasher led3(LED3);
 Flasher led4(LED4, 2);
 
@@ -54,6 +58,10 @@ DigitalOut highPowerLED1(p26);
 DigitalOut highPowerLED2(p27);
 DigitalOut highPowerLED3(p28);
 
+// TODO: put in a dedicated lib
+void generatePulse() {
+
+}
 
 void flip2() {
   led1 = !led1;
@@ -123,7 +131,7 @@ void readPC() {
   // parameters list
   // factor: scale of 3V
   // ccles: number of periods to run
-  int period;
+  int period, dutycycle;
   int cycles;
   int stepsA=0, directionA=0, stepsB=0, directionB=0, speedA=300, speedB=300;
   int highPowerLED1_On=0, highPowerLED2_On=0, highPowerLED3_On=0;
@@ -144,6 +152,7 @@ void readPC() {
   if (!json) {
     printf("Error before: [%s]\n", cJSON_GetErrorPtr());
   } else {
+    dutycycle = cJSON_GetObjectItem(json, "dutycycle")->valueint;
     period = cJSON_GetObjectItem(json, "period")->valueint;
     cycles = cJSON_GetObjectItem(json, "cycles")->valueint;
     factor = cJSON_GetObjectItem(json, "factor")->valuedouble;
@@ -169,15 +178,18 @@ void readPC() {
   stepperA.step(stepsA, directionA, speedA, false);
   stepperB.step(stepsB, directionB, speedB, false);
   // Generate Wave
-  sawTooth.setWave(factor, period);
-  sawTooth.waveOut(cycles);
+  //sawTooth.setWave(factor, period);
+  //sawTooth.waveOut(cycles);
+  pulse.setPulse(factor, period, dutycycle);
+  pulse.pulseOut(cycles);
+
   // High Power LED
   highPowerLED1 = highPowerLED1_On;
   highPowerLED2 = highPowerLED2_On;
   highPowerLED3 = highPowerLED3_On;
 
   printf("%s\n", holder.c_str());
-  printf("period is %d ms\n", period);
+  //printf("period is %d ms\n", period);
   // Clear error only when PC issues command
   clearError(errorStatus);
   // Restore ISR when everything is done:
