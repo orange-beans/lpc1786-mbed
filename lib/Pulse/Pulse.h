@@ -1,5 +1,5 @@
-#ifndef SAWTOOTH_H
-#define SAWTOOTH_H
+#ifndef PULSE_H
+#define PULSE_H
 
 #include "mbed.h"
 #include <vector>

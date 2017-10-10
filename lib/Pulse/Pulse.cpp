@@ -35,3 +35,9 @@ void Pulse::setPulse(double factor = 0.1, uint16_t period = 1000, uint16_t onPer
   length = period;
   onLength = onPeriod;
 }
+
+void Pulse::updateAmp(double factor = 0.1) {
+  if (factor > 1) factor = 1;
+  if (factor <= 0) factor = 0;
+  amplitude = (uint16_t)(factor * 65535);
+}

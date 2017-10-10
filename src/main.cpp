@@ -30,8 +30,8 @@ DigitalOut led2(LED2);
 //DigitalOut led3(LED3);
 //DigitalOut led4(LED4);
 
-//SawTooth sawTooth(p18, 0.5);
-Pulse pluse(p18);
+//SawTooth pulse(p18, 0.5);
+Pulse pulse(p18);
 //DigitalOut pluse(p18);
 
 Flasher led3(LED3);
