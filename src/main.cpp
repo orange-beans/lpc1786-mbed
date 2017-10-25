@@ -163,11 +163,11 @@ void readPC() {
     directionB = cJSON_GetObjectItem(json, "directionB")->valueint;
     speedB = cJSON_GetObjectItem(json, "speedB")->valueint;
 
-    highPowerLED1_On = cJSON_GetObjectItem(json, "led1")->valueint;
-    highPowerLED2_On = cJSON_GetObjectItem(json, "led2")->valueint;
-    highPowerLED3_On = cJSON_GetObjectItem(json, "led3")->valueint;
-
-    errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
+    // highPowerLED1_On = cJSON_GetObjectItem(json, "led1")->valueint;
+    // highPowerLED2_On = cJSON_GetObjectItem(json, "led2")->valueint;
+    // highPowerLED3_On = cJSON_GetObjectItem(json, "led3")->valueint;
+    //
+    // errorStatus = cJSON_GetObjectItem(json, "errorStatus")->valueint;
     cJSON_Delete(json);
   }
   printf("After %d\n", stepsA);
