@@ -281,6 +281,7 @@ void readPC() {
 }
 
 void readRS485() {
+  RST_EN = 1;
   // Disable the ISR during handling
   rs485.attach(0);
   // Note: you need to actually read from the serial to clear the RX interrupt
@@ -350,6 +351,7 @@ void readRS485() {
       break;
   }
 
+  RST_EN = 0;
   // Restore ISR when everything is done:
   rs485.attach(&readRS485);
 }
