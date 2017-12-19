@@ -162,7 +162,11 @@ void sendFeedback(string paraName,int para) {
 
 void sendRS485(string message) {
   RST_EN = 1;
+  wait_ms(1);
   rs485.printf("{%s}\n", message.c_str());
+  // NOTE: this delay is essiential for message to be fully transimitted
+  // increate the delay time if message found being cut half-way
+  wait_ms(2);
   RST_EN = 0;
 }
 
@@ -209,7 +213,7 @@ void checkPin() {
     // Don't trigger on the way back to Position1
     if (move !=1) {
       LIMIT_SWITCH2 = 1;
-      onPosition2();
+      //onPosition2();
     }
   } else {
     if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
@@ -219,7 +223,7 @@ void checkPin() {
 
   if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
       LIMIT_SWITCH3 = 1;
-      onPosition3();
+      //onPosition3();
   } else {
     if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
       LIMIT_SWITCH3 = 0;
@@ -277,6 +281,7 @@ void readPC() {
 }
 
 void readRS485() {
+  RST_EN = 1;
   // Disable the ISR during handling
   rs485.attach(0);
   // Note: you need to actually read from the serial to clear the RX interrupt
@@ -346,6 +351,7 @@ void readRS485() {
       break;
   }
 
+  RST_EN = 0;
   // Restore ISR when everything is done:
   rs485.attach(&readRS485);
 }
@@ -380,6 +386,9 @@ int main() {
       // TODO: temp put pos2 feedback here
       if (move ==2) {
         onPosition2();
+      }
+      if (move ==3) {
+        onPosition3();
       }
       triggerLED(trigger);
       move = 0;
