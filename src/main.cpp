@@ -367,6 +367,8 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.1);
 
+  sendRS485("cc_init");
+
   pc.attach(&readPC);
   rs485.attach(&readRS485);
 
