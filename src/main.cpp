@@ -166,7 +166,7 @@ void sendRS485(string message) {
   rs485.printf("{%s}\n", message.c_str());
   // NOTE: this delay is essiential for message to be fully transimitted
   // increate the delay time if message found being cut half-way
-  wait_ms(2);
+  wait_ms(4);
   RST_EN = 0;
 }
 
@@ -281,7 +281,7 @@ void readPC() {
 }
 
 void readRS485() {
-  RST_EN = 1;
+  sendRS485("enter_Read");
   // Disable the ISR during handling
   rs485.attach(0);
   // Note: you need to actually read from the serial to clear the RX interrupt
@@ -297,11 +297,14 @@ void readRS485() {
   int command = 0;
 
   char temp;
-  while(temp != '\n') {
+  while(temp != '\r') {
     temp = rs485.getc();
     holder += temp;
   }
   if (holder.length() < 5) return;
+
+  sendRS485(holder.c_str());
+  sendRS485("read_Complete");
 
   if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
   if (isSubString(holder, "cc_MOVE_1")) command = CMD_CC_MOVE_1;
@@ -351,7 +354,6 @@ void readRS485() {
       break;
   }
 
-  RST_EN = 0;
   // Restore ISR when everything is done:
   rs485.attach(&readRS485);
 }
@@ -375,7 +377,7 @@ int main() {
 
   sendRS485("cc_init");
 
-  pc.attach(&readPC);
+  //pc.attach(&readPC);
   rs485.attach(&readRS485);
 
   while(1) {
