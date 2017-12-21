@@ -23,7 +23,8 @@
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
-int move=0, trigger=0, speed = 330;
+//int move=0, trigger=0, speed = 330;
+int move=0, trigger=0, speed=300;
 
 Serial pc(USBTX, USBRX, 115200);
 Serial rs485(p13, p14, 115200);
@@ -245,6 +246,7 @@ void readPC() {
   // factor: scale of 3V
   // ccles: number of periods to run
   //int move=0, trigger=0;
+  int _speed = speed;
 
   int errorStatus=0;
 
@@ -259,29 +261,35 @@ void readPC() {
   if (!json) {
     printf("Error before: [%s]\n", cJSON_GetErrorPtr());
   } else {
-    move = cJSON_GetObjectItem(json, "move")->valueint;
-    trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
-    speed = cJSON_GetObjectItem(json, "speed")->valueint;
+    // move = cJSON_GetObjectItem(json, "move")->valueint;
+    // trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
+    _speed = cJSON_GetObjectItem(json, "speed")->valueint;
     cJSON_Delete(json);
+
+    if (_speed <=100 || _speed >= 500) {
+      printf("Motor speed must be within [100 - 500]\n");
+    } else {
+      printf("Motor speed set to [%d]\n", _speed);
+      speed = _speed;
+    }
   }
 
   // Set COMMAND_FLAG to true, ready to handle inside main
 
   // Move Stepper Motor
-  if (move != 0) {
-    COMMAND_FLAG = 1;
-  }
-
-  if (trigger !=0) {
-
-  }
+  // if (move != 0) {
+  //   COMMAND_FLAG = 1;
+  // }
+  //
+  // if (trigger !=0) {
+  //
+  // }
 
   // Restore ISR when everything is done:
   pc.attach(&readPC);
 }
 
 void readRS485() {
-  sendRS485("enter_Read");
   // Disable the ISR during handling
   rs485.attach(0);
   // Note: you need to actually read from the serial to clear the RX interrupt
@@ -297,14 +305,11 @@ void readRS485() {
   int command = 0;
 
   char temp;
-  while(temp != '\r') {
+  while(temp != '\n') {
     temp = rs485.getc();
     holder += temp;
   }
   if (holder.length() < 5) return;
-
-  sendRS485(holder.c_str());
-  sendRS485("read_Complete");
 
   if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
   if (isSubString(holder, "cc_MOVE_1")) command = CMD_CC_MOVE_1;
@@ -351,6 +356,7 @@ void readRS485() {
       break;
 
     default:
+      //sendRS485("cc_UNKNOWN_CMD");
       break;
   }
 
@@ -375,9 +381,10 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.1);
 
+  printf("version: [%d]\n", 104);
   sendRS485("cc_init");
 
-  //pc.attach(&readPC);
+  pc.attach(&readPC);
   rs485.attach(&readRS485);
 
   while(1) {
