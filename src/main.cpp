@@ -23,8 +23,11 @@
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
+// NOTE:
+// set speed = 330 for older model
+// set speed = 450 for new model
 //int move=0, trigger=0, speed = 330;
-int move=0, trigger=0, speed=300;
+int move=0, trigger=0, speed=450;
 
 Serial pc(USBTX, USBRX, 115200);
 Serial rs485(p13, p14, 115200);
