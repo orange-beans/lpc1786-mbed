@@ -20,6 +20,9 @@
 #define CMD_CC_TRIGGER_2 0x32
 #define CMD_CC_TRIGGER_3 0x33
 
+#define ERR_CC_CMD_UNKNOWN 0xf0
+#define ERR_CC_CMD_TOOSHORT 0xf1
+
 // Global variables
 int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 // ccles: number of periods to run
@@ -312,7 +315,8 @@ void readRS485() {
     temp = rs485.getc();
     holder += temp;
   }
-  if (holder.length() < 5) return;
+  // NOTE: cannot directly return from a ISR
+  if (holder.length() < 5) command = ERR_CC_CMD_TOOSHORT;
 
   if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
   if (isSubString(holder, "cc_MOVE_1")) command = CMD_CC_MOVE_1;
