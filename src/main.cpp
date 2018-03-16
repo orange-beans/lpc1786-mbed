@@ -32,8 +32,8 @@ int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
 //int move=0, trigger=0, speed = 330;
 int move=0, trigger=0, speed=450;
 
-Serial pc(USBTX, USBRX, 115200);
-Serial rs485(p13, p14, 115200);
+Serial pc(USBTX, USBRX, 57600);
+Serial rs485(p13, p14, 57600);
 DigitalOut RST_EN(p15);
 
 // Pin assigment
