@@ -19,6 +19,7 @@
 #define CMD_CC_TRIGGER_1 0x31
 #define CMD_CC_TRIGGER_2 0x32
 #define CMD_CC_TRIGGER_3 0x33
+#define CMD_CC_TRIGGER_4 0x34
 
 #define ERR_CC_CMD_UNKNOWN 0xf0
 #define ERR_CC_CMD_TOOSHORT 0xf1
@@ -76,6 +77,7 @@ string interruptIndicator = "";
 DigitalOut highPowerLED1(p26);
 DigitalOut highPowerLED2(p27);
 DigitalOut highPowerLED3(p28);
+DigitalOut highPowerLED4(p29);
 
 // Local Helpers
 bool isSubString(string str1, string str2) {
@@ -151,6 +153,9 @@ void triggerLED(int led_number) {
     case 3:
       highPowerLED3 = 1;
       break;
+    case 4:
+      highPowerLED4 = 1;
+      break;
     default:
       break;
   }
@@ -160,6 +165,7 @@ void triggerLED(int led_number) {
   highPowerLED1 = 0;
   highPowerLED2 = 0;
   highPowerLED3 = 0;
+  highPowerLED4 = 0;
   return;
 }
 
@@ -325,6 +331,7 @@ void readRS485() {
   if (isSubString(holder, "cc_TRIGGER_1")) command = CMD_CC_TRIGGER_1;
   if (isSubString(holder, "cc_TRIGGER_2")) command = CMD_CC_TRIGGER_2;
   if (isSubString(holder, "cc_TRIGGER_3")) command = CMD_CC_TRIGGER_3;
+  if (isSubString(holder, "cc_TRIGGER_4")) command = CMD_CC_TRIGGER_4;
 
   // Parse RS485 commands
   switch (command) {
@@ -362,6 +369,11 @@ void readRS485() {
       COMMAND_FLAG = 1;
       break;
 
+    case CMD_CC_TRIGGER_4:
+      trigger = 4;
+      COMMAND_FLAG = 1;
+      break;
+
     default:
       //sendRS485("cc_UNKNOWN_CMD");
       break;
@@ -381,6 +393,7 @@ int main() {
   highPowerLED1 = 0;
   highPowerLED2 = 0;
   highPowerLED3 = 0;
+  highPowerLED4 = 0;
 
   led3.flash(1);
   led4.flash(3);
