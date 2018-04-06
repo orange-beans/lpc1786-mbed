@@ -95,11 +95,13 @@ void flip() {
 void disableStepper() {
   resetA = 0;
   resetB = 0;
+  wait_ms(1);
 }
 
 void enableStepper() {
   resetA = 1;
   resetB = 1;
+  wait_ms(1);
 }
 
 void moveForward(int speed) {
@@ -401,7 +403,7 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.1);
 
-  printf("version: [%d]\n", 106);
+  printf("version: [%d]\n", 110);
   sendRS485("cc_init");
 
   pc.attach(&readPC);
