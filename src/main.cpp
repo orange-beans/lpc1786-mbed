@@ -8,7 +8,7 @@
 
 // 12V speed set at 400 steps/second
 // 488 Just right
-#define MOTOR_DISTANCE 482
+// #define MOTOR_DISTANCE 482
 #define MOTOR_DISTANCE 478
 #define RAMP_STEPS 25
 
