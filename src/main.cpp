@@ -9,7 +9,7 @@
 // 12V speed set at 400 steps/second
 // 488 Just right
 // #define MOTOR_DISTANCE 482
-#define MOTOR_DISTANCE 478
+#define MOTOR_DISTANCE 480
 #define RAMP_STEPS 25
 
 // RS485 commands set
@@ -209,44 +209,55 @@ void onPosition3() {
 }
 
 
-void checkPin() {
-  // Don't disable Motor continously
-  if (limitSwitch1 == 1 || limitSwitch2 == 1 || limitSwitch3 == 1) {
-    disableStepper();
-  }
+// void checkPinOld() {
+//   // Don't disable Motor continously
+//   // if (limitSwitch1 == 1 || limitSwitch2 == 1 || limitSwitch3 == 1) {
+//   //   disableStepper();
+//   // }
+//
+//   // Rising
+//   if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 0) {
+//     LIMIT_SWITCH1 = 1;
+//     onPosition1();
+//   } else {
+//     if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 1) {
+//       LIMIT_SWITCH1 = 0;
+//     }
+//   }
+//
+//   if (limitSwitch2 == 1 && LIMIT_SWITCH2 == 0) {
+//     // Don't trigger on the way back to Position1
+//     if (move !=1) {
+//       LIMIT_SWITCH2 = 1;
+//       //onPosition2();
+//     }
+//   } else {
+//     if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
+//       LIMIT_SWITCH2 = 0;
+//     }
+//   }
+//
+//   if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
+//       LIMIT_SWITCH3 = 1;
+//       //onPosition3();
+//   } else {
+//     if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
+//       LIMIT_SWITCH3 = 0;
+//     }
+//   }
+// }
 
-  // Rising
-  if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 0) {
+void checkPin() {
+  // Falling
+  if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 0) {
     LIMIT_SWITCH1 = 1;
     onPosition1();
   } else {
-    if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 1) {
+    if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 1) {
       LIMIT_SWITCH1 = 0;
     }
   }
-
-  if (limitSwitch2 == 1 && LIMIT_SWITCH2 == 0) {
-    // Don't trigger on the way back to Position1
-    if (move !=1) {
-      LIMIT_SWITCH2 = 1;
-      //onPosition2();
-    }
-  } else {
-    if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
-      LIMIT_SWITCH2 = 0;
-    }
-  }
-
-  if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
-      LIMIT_SWITCH3 = 1;
-      //onPosition3();
-  } else {
-    if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
-      LIMIT_SWITCH3 = 0;
-    }
-  }
 }
-
 
 // Read From VCP
 void readPC() {
@@ -404,7 +415,7 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.1);
 
-  printf("version: [%d]\n", 110);
+  printf("version: [%d]\n", 120);
   sendRS485("cc_init");
 
   pc.attach(&readPC);
