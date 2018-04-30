@@ -9,7 +9,7 @@
 // 12V speed set at 400 steps/second
 // 488 Just right
 // #define MOTOR_DISTANCE 482
-#define MOTOR_DISTANCE 480
+#define MOTOR_DISTANCE 472
 #define RAMP_STEPS 25
 
 // RS485 commands set
@@ -125,7 +125,7 @@ void moveBackward(int speed) {
   // }
   // stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
   // stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
-  stepperB.step(MOTOR_DISTANCE * 2.2, 0, speed, false);
+  stepperB.step(MOTOR_DISTANCE * 2.3, 0, speed, false);
 }
 
 void moveMotor(int pos, int speed) {
@@ -414,7 +414,7 @@ int main() {
   led4.flash(3);
 
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
-  ticker.attach(&checkPin, 0.1);
+  ticker.attach(&checkPin, 0.02);
 
   printf("version: [%d]\n", 121);
   sendRS485("cc_init");
