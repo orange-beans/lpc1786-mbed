@@ -125,7 +125,7 @@ void moveBackward(int speed) {
   // }
   // stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
   // stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
-  stepperB.step(MOTOR_DISTANCE * 2, 0, speed, false);
+  stepperB.step(MOTOR_DISTANCE * 2.2, 0, speed, false);
 }
 
 void moveMotor(int pos, int speed) {
@@ -188,7 +188,7 @@ void sendRS485(string message) {
 
 
 void onPosition1() {
-  disableStepper();
+  //disableStepper();
   sendFeedback("position", 1);
   sendRS485("cc_POSITION_1");
   //wait_ms(50);
@@ -252,6 +252,7 @@ void checkPin() {
   if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 0) {
     LIMIT_SWITCH1 = 1;
     onPosition1();
+    disableStepper();
   } else {
     if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 1) {
       LIMIT_SWITCH1 = 0;
@@ -415,7 +416,7 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.1);
 
-  printf("version: [%d]\n", 120);
+  printf("version: [%d]\n", 121);
   sendRS485("cc_init");
 
   pc.attach(&readPC);
