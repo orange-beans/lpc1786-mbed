@@ -2,26 +2,28 @@
 #include "mbed_events.h"
 #include "main.h"
 #include <stdlib.h>
+#include <sstream>
 #include <string>
 #include <cJSON.h>
-// #include <Flasher.h>
-// #include <PID.h>
+#include <Stepper.h>
+#include <Servo.h>
 
 //****** Define User Variables ******//
 typedef struct {
-  unsigned int valve1;
-  unsigned int valve2;
-  unsigned int valve3;
-  unsigned int valve4;
-  unsigned int valve5;
-  unsigned int valve6;
-  unsigned int valve7;
-  unsigned int valve8;
-  unsigned int valve9;
-  unsigned int valve10;
+  // unsigned int valve1;
+  // unsigned int valve2;
+  // unsigned int valve3;
+  // unsigned int valve4;
+  // unsigned int valve5;
+  // unsigned int valve6;
+  // unsigned int valve7;
+  // unsigned int valve8;
+  // unsigned int valve9;
+  // unsigned int valve10;
+  unsigned char valves[10]; // specified the size
 } system_setting_t;
 
-system_setting_t system_setting = { 0,0,0,0,0 ,0,0,0,0,0 };
+system_setting_t system_setting = { {0,0,0,0,0 ,0,0,0,0,0} };
 
 unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 
@@ -47,21 +49,27 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 DigitalOut led1(LED1);
 DigitalOut led2(LED2);
 DigitalOut led3(LED3);
-DigitalOut statusLED(p26);
+DigitalOut led4(LED4);
 
-// ID reading
-DigitalIn ID_0(p8);
-DigitalIn ID_1(p7);
-DigitalIn ID_2(p6);
-DigitalIn ID_3(p5);
+// Stepper motor control
+// stepperA is at connector P3
+// stepperB is at connector P4
+stepper stepperA(p5, p6);
+stepper stepperB(p7, p8);
 
-//ADC pins
-AnalogIn analogInA(p15);
-AnalogIn analogInB(p16);
+// valve control
+DigitalOut valve1(p26);
+DigitalOut valve2(p27);
+DigitalOut valve3(p28);
+DigitalOut valve4(p29);
 
-//PWM pins
-PwmOut heater(p21);
-PwmOut cooler(p22);
+// //ADC pins
+// AnalogIn analogInA(p15);
+// AnalogIn analogInB(p16);
+//
+// //PWM pins
+// PwmOut heater(p21);
+// PwmOut cooler(p22);
 
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
@@ -103,6 +111,14 @@ EventFlags event;
 //EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
 //****** Local Helpers ******//
+template <typename T>
+std::string ToString(T val)
+{
+    std::stringstream stream;
+    stream << val;
+    return stream.str();
+}
+
 // isSubString
 bool isSubString(string str1, string str2) {
   return str1.find(str2) != std::string::npos;
@@ -112,15 +128,23 @@ bool isSubString(string str1, string str2) {
 string STARTDELIMITER = ":";
 string STOPDELIMITER = "\n";
 
-string findToken(string str) {
+int findToken(string str) {
   unsigned int first = str.find(STARTDELIMITER) + 1;
   unsigned int last = str.find(STOPDELIMITER) - 1;
   string token = str.substr(first, last-first);
-  return token;
+  //return token;
+  return atoi(token.c_str());
 }
 
 void sendPC(string message) {
   pc.printf("{%s}\n", message.c_str());
+}
+
+void controlValve() {
+  led1 = system_setting.valves[0] == 0 ? 0 : 1;
+  led2 = system_setting.valves[1] == 0 ? 0 : 1;
+  led3 = system_setting.valves[2] == 0 ? 0 : 1;
+  led4 = system_setting.valves[3] == 0 ? 0 : 1;
 }
 
 //****** System Init ******//
@@ -174,6 +198,8 @@ void realtimeHandle() {
 
     // 2.Do realtime tasks
     // sendPC("realtime");
+    controlValve();
+
   }
 }
 
@@ -205,7 +231,8 @@ void commandHandle() {
   osEvent evt;
   cmd_t *received_cmd;
 
-  string holder, token;
+  string holder;
+  unsigned int token;
   unsigned char command = 0;
   cJSON *json;
   unsigned char cmd_address = 0xffff;
@@ -239,12 +266,27 @@ void commandHandle() {
 
         case CMD_CC_ON_VALVE:
           token = findToken(holder.c_str());
-          sendPC("cc_ACK_VALVE_ON:" + token);
+
+          if (token > 0 && token < 11) {
+            system_setting.valves[token-1] = 1;
+            sendPC("cc_ACK_VALVE_ON:" + ToString(token));
+            sendPC("current state:" + ToString(system_setting.valves));
+          } else {
+            sendPC("cc_UNKNOW_VALVE_NO");
+          }
           break;
 
         case CMD_CC_OFF_VALVE:
           token = findToken(holder.c_str());
-          sendPC("cc_ACK_VALVE_OFF:" + token);
+
+          if (token > 0 && token < 11) {
+            system_setting.valves[token-1] = 0;
+            sendPC("cc_ACK_VALVE_OFF:" + ToString(token));
+            sendPC("current state:" + ToString(system_setting.valves));
+          } else {
+            sendPC("cc_UNKNOW_VALVE_NO");
+          }
+
           break;
 
         default:
@@ -256,8 +298,7 @@ void commandHandle() {
 }
 
 void realtimeTick() {
-  led1 = !led1;
-  statusLED = !statusLED;
+  // led1 = !led1;
   event.set(REALTIME_TICK_S);
 }
 
