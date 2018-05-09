@@ -145,6 +145,11 @@ void controlValve() {
   led2 = system_setting.valves[1] == 0 ? 0 : 1;
   led3 = system_setting.valves[2] == 0 ? 0 : 1;
   led4 = system_setting.valves[3] == 0 ? 0 : 1;
+
+  valve1 = system_setting.valves[0] == 0 ? 0 : 1;
+  valve2 = system_setting.valves[1] == 0 ? 0 : 1;
+  valve3 = system_setting.valves[2] == 0 ? 0 : 1;
+  valve4 = system_setting.valves[3] == 0 ? 0 : 1;
 }
 
 //****** System Init ******//
