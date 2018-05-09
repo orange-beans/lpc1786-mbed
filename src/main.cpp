@@ -1,443 +1,280 @@
 #include "mbed.h"
+#include "mbed_events.h"
+#include "main.h"
+#include <stdlib.h>
 #include <string>
 #include <cJSON.h>
-#include <Flasher.h>
-#include <SawTooth.h>
-#include <Stepper.h>
-#include <Servo.h>
+// #include <Flasher.h>
+// #include <PID.h>
 
-// 12V speed set at 400 steps/second
-// 488 Just right
-// #define MOTOR_DISTANCE 482
-#define MOTOR_DISTANCE 472
-#define RAMP_STEPS 25
+//****** Define User Variables ******//
+typedef struct {
+  unsigned int valve1;
+  unsigned int valve2;
+  unsigned int valve3;
+  unsigned int valve4;
+  unsigned int valve5;
+  unsigned int valve6;
+  unsigned int valve7;
+  unsigned int valve8;
+  unsigned int valve9;
+  unsigned int valve10;
+} system_setting_t;
 
-// RS485 commands set
+system_setting_t system_setting = { 0,0,0,0,0 ,0,0,0,0,0 };
+
+unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
+
+//****** Define Commands ******//
 #define CMD_CC_ID 0x10
-#define CMD_CC_MOVE_1 0x21
-#define CMD_CC_MOVE_2 0x22
-#define CMD_CC_MOVE_3 0x23
-#define CMD_CC_TRIGGER_1 0x31
-#define CMD_CC_TRIGGER_2 0x32
-#define CMD_CC_TRIGGER_3 0x33
-#define CMD_CC_TRIGGER_4 0x34
+
+#define CMD_CC_ON_VALVE   0x30
+#define CMD_CC_OFF_VALVE  0x31
+
+#define CMD_CC_ROTATE_MOTOR 0x40
+#define CMD_CC_HOME_MOTOR   0x41
+
+#define CMD_CC_ON_ULTRA  0x50
+#define CMD_CC_OFF_ULTRA 0x51
+
+#define CMD_CC_ON_PUMP   0x60
+#define CMD_CC_OFF_PUMP  0x61
 
 #define ERR_CC_CMD_UNKNOWN 0xf0
 #define ERR_CC_CMD_TOOSHORT 0xf1
 
-// Global variables
-int COMMAND_FLAG = 0, LIMIT_SWITCH1=0, LIMIT_SWITCH2=0, LIMIT_SWITCH3=0;
-// ccles: number of periods to run
-// NOTE:
-// set speed = 330 for older model
-// set speed = 450 for new model
-//int move=0, trigger=0, speed = 330;
-int move=0, trigger=0, speed=450;
-
-Serial pc(USBTX, USBRX, 57600);
-Serial rs485(p13, p14, 57600);
-DigitalOut RST_EN(p15);
-
-// Pin assigment
-// p25: Servo
-// p18: Sawtooth
-// p5, p6, p7, p8: Stepper
-// p11, p12: Reset
-// p21, p22, p23, p24, p25: Limit Switch
-// p26, p27, p28: LED Control
-
-// Servo testing
-Servo myServo(p25);
-
-Ticker flipper;
-Ticker flipper2;
-Ticker ticker;
-PwmOut led1(LED1);
+//****** Define Function Pins ******//
+DigitalOut led1(LED1);
 DigitalOut led2(LED2);
+DigitalOut led3(LED3);
+DigitalOut statusLED(p26);
 
-Flasher led3(LED3);
-Flasher led4(LED4, 2);
+// ID reading
+DigitalIn ID_0(p8);
+DigitalIn ID_1(p7);
+DigitalIn ID_2(p6);
+DigitalIn ID_3(p5);
 
-// Stepper motor control
-// stepperA is at connector P3
-// stepperB is at connector P4
-stepper stepperA(p5, p6);
-stepper stepperB(p7, p8);
-DigitalOut resetA(p11);
-DigitalOut resetB(p12);
+//ADC pins
+AnalogIn analogInA(p15);
+AnalogIn analogInB(p16);
 
-// Limit switch checking
-PwmOut buzzer(p21);
-InterruptIn limitSwitch1(p22);
-InterruptIn limitSwitch2(p24);
-InterruptIn limitSwitch3(p25);
-//InterruptIn limitSwitch4(p25);
-string interruptIndicator = "";
+//PWM pins
+PwmOut heater(p21);
+PwmOut cooler(p22);
 
-// LED Control
-DigitalOut highPowerLED1(p26);
-DigitalOut highPowerLED2(p27);
-DigitalOut highPowerLED3(p28);
-DigitalOut highPowerLED4(p29);
+// Setup Serial Ports
+Serial pc(USBTX, USBRX, 115200);
+//Serial dev(p28, p27, 115200);
 
-// Local Helpers
+//****** Define Threads ******//
+// Define threads
+Thread realtimeThread(osPriorityRealtime, MEDIUM_STACK_SIZE, NULL, NULL);
+//Thread operateThread(osPriorityAboveNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+Thread displayTread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+Thread commandThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+
+// Define threads functions
+void realtimeHandle();
+void commandHandle();
+void displayHandle();
+
+void realtimeTick();
+//****** Define ISR ******//
+void commandISR();
+
+//****** Define Mails ******//
+typedef struct {
+  float   temperature;
+  float   output;
+} mail_t;
+
+typedef struct {
+  char *cmdStr;
+} cmd_t;
+
+Mail<mail_t, 4> mail_box;
+Mail<cmd_t, 4> cmd_box;
+
+//****** Define Events ******//
+EventFlags event;
+
+//****** Define Queues ******//
+//EventQueue queue(32 * EVENTS_EVENT_SIZE);
+
+//****** Local Helpers ******//
+// isSubString
 bool isSubString(string str1, string str2) {
   return str1.find(str2) != std::string::npos;
 }
 
-void flip2() {
-  led1 = !led1;
+// find Command Token
+string STARTDELIMITER = ":";
+string STOPDELIMITER = "\n";
+
+string findToken(string str) {
+  unsigned int first = str.find(STARTDELIMITER) + 1;
+  unsigned int last = str.find(STOPDELIMITER) - 1;
+  string token = str.substr(first, last-first);
+  return token;
 }
 
-void flip() {
-  led2 = !led2;
+void sendPC(string message) {
+  pc.printf("{%s}\n", message.c_str());
 }
 
-void disableStepper() {
-  resetA = 0;
-  resetB = 0;
-  wait_ms(1);
+//****** System Init ******//
+void initSystem() {
+
 }
 
-void enableStepper() {
-  resetA = 1;
-  resetB = 1;
-  wait_ms(1);
+//****** Main ******//
+int main() {
+  // Init System
+  initSystem();
+
+  // ISR handlers
+  pc.attach(&commandISR);
+
+  // Create a queue with the default size
+  EventQueue queue;
+  //queue.call_in(2000, printf, "called in 2 seconds\n");
+  queue.call_every(REALTIME_INTERVAL, realtimeTick);
+  //queue.call_every(1000, blink, "called every 1 seconds\n\r");
+
+  // Start Threads
+  realtimeThread.start(realtimeHandle);
+  //displayTread.start(callback(displayHandle, &led1));
+  commandThread.start(commandHandle);
+  //displayTread.start(displayHandle);
+
+  // events are executed by the dispatch method
+  queue.dispatch();
+
+  while(true) {}
 }
 
-void moveForward(int speed) {
-  //stepperA.step(MOTOR_DISTANCE, 1, speed, false);
-  // for (int i=0; i < RAMP_STEPS; i++) {
-  //   stepperB.step(static_cast<int>(MOTOR_DISTANCE/RAMP_STEPS/4), 1, static_cast<int>(speed*i/RAMP_STEPS), false);
-  //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
-  // }
-  // stepperB.step(MOTOR_DISTANCE/4, 1, speed, true);
-  // stepperB.step(MOTOR_DISTANCE*3/4, 1, speed, false);
-  stepperB.step(MOTOR_DISTANCE, 1, speed, false);
-}
+//****** Threads Callbacks ******//
+void realtimeHandle() {
+  float output = 0, temperature = 0;
+  unsigned char counter = 0;
+  mail_t *sent_mail;
 
-void moveBackward(int speed) {
-  //stepperA.step(MOTOR_DISTANCE, 0, speed, false);
-  // for (int i=0; i < RAMP_STEPS; i++) {
-  //   stepperB.step(static_cast<int>(MOTOR_DISTANCE/RAMP_STEPS/4), 0, static_cast<int>(speed*i/RAMP_STEPS), false);
-  //   //stepperB.step(MOTOR_DISTANCE*1/4, 1, speed, true);
-  //   //stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
-  // }
-  // stepperB.step(MOTOR_DISTANCE/4, 0, speed, true);
-  // stepperB.step(MOTOR_DISTANCE*3/4, 0, speed, false);
-  stepperB.step(MOTOR_DISTANCE * 2.3, 0, speed, false);
-}
+  // Temp
+  unsigned int holdCounter = 0;
 
-void moveMotor(int pos, int speed) {
-  enableStepper();
-  switch (pos) {
-    case 1:
-      moveBackward(speed);
-      break;
-    case 2:
-      moveForward(speed);
-      break;
-    case 3:
-      moveForward(speed);
-      break;
-    default:
-      break;
+  while(true) {
+    // 1.Wait until timer tick
+    event.wait_all(REALTIME_TICK_S);
+
+    // sent_mail = mail_box.alloc();
+    // sent_mail->temperature = temperature;
+    // sent_mail->output = output;
+    // mail_box.put(sent_mail);
+
+    // 2.Do realtime tasks
+    // sendPC("realtime");
   }
 }
 
-void triggerLED(int led_number) {
-  switch (led_number) {
-    case 1:
-      highPowerLED1 = 1;
-      break;
-    case 2:
-      highPowerLED2 = 1;
-      break;
-    case 3:
-      highPowerLED3 = 1;
-      break;
-    case 4:
-      highPowerLED4 = 1;
-      break;
-    default:
-      break;
+void displayHandle() {
+  osEvent evt;
+  mail_t *received_mail;
+  float temperature, output;
+  while(true) {
+    // Wait for mail to be avaliable;
+    evt = mail_box.get();
+    // Read mail
+    if (evt.status == osEventMail) {
+      received_mail = (mail_t*)evt.value.p;
+      temperature = received_mail->temperature;
+      output = received_mail->output;
+      // Free memory
+      // NOTE: need to process data before free, otherwise data may get corrupted
+      mail_box.free(received_mail);
+      // printf("0x%04x/temperature read is: %3.1f\r\n", BACKBONE_ADDRESS, temperature);
+      // printf("0x%04x/output setting is: %3.1f%%\r\n", BACKBONE_ADDRESS, output*100);
+      // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
+    }
+
+    led2 = !led2;
   }
-
-  wait(0.1f);
-
-  highPowerLED1 = 0;
-  highPowerLED2 = 0;
-  highPowerLED3 = 0;
-  highPowerLED4 = 0;
-  return;
 }
 
-void sendFeedback(string paraName,int para) {
-  printf("{ \"%s\": %d }\n", paraName.c_str(), para);
-}
+void commandHandle() {
+  osEvent evt;
+  cmd_t *received_cmd;
 
-void sendRS485(string message) {
-  RST_EN = 1;
-  wait_ms(1);
-  rs485.printf("{%s}\n", message.c_str());
-  // NOTE: this delay is essiential for message to be fully transimitted
-  // increate the delay time if message found being cut half-way
-  wait_ms(4);
-  RST_EN = 0;
-}
+  string holder, token;
+  unsigned char command = 0;
+  cJSON *json;
+  unsigned char cmd_address = 0xffff;
 
+  while(true) {
+    //event.wait_all(COMMAND_S);
+    // reset cmd_address everytime
+    cmd_address = 0xffff;
+    command = 0;
 
-void onPosition1() {
-  //disableStepper();
-  sendFeedback("position", 1);
-  sendRS485("cc_POSITION_1");
-  //wait_ms(50);
-}
+    evt = cmd_box.get();
+    if (evt.status == osEventMail) {
+      received_cmd = (cmd_t*)evt.value.p;
+      cmd_box.free(received_cmd);
+      // Process command
 
-void onPosition2() {
-  disableStepper();
-  sendFeedback("position", 2);
-  sendRS485("cc_POSITION_2");
-  //wait_ms(50);
-}
+      holder = received_cmd->cmdStr;
 
-void onPosition3() {
-  disableStepper();
-  sendFeedback("position", 3);
-  sendRS485("cc_POSITION_3");
-  //wait_ms(50);
-}
+      // NOTE: cannot directly return from a ISR
+      if (holder.length() < 5) command = ERR_CC_CMD_TOOSHORT;
 
+      if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
+      if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
+      if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
 
-// void checkPinOld() {
-//   // Don't disable Motor continously
-//   // if (limitSwitch1 == 1 || limitSwitch2 == 1 || limitSwitch3 == 1) {
-//   //   disableStepper();
-//   // }
-//
-//   // Rising
-//   if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 0) {
-//     LIMIT_SWITCH1 = 1;
-//     onPosition1();
-//   } else {
-//     if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 1) {
-//       LIMIT_SWITCH1 = 0;
-//     }
-//   }
-//
-//   if (limitSwitch2 == 1 && LIMIT_SWITCH2 == 0) {
-//     // Don't trigger on the way back to Position1
-//     if (move !=1) {
-//       LIMIT_SWITCH2 = 1;
-//       //onPosition2();
-//     }
-//   } else {
-//     if (limitSwitch2 == 0 && LIMIT_SWITCH2 == 1) {
-//       LIMIT_SWITCH2 = 0;
-//     }
-//   }
-//
-//   if (limitSwitch3 == 1 && LIMIT_SWITCH3 == 0) {
-//       LIMIT_SWITCH3 = 1;
-//       //onPosition3();
-//   } else {
-//     if (limitSwitch3 == 0 && LIMIT_SWITCH3 == 1) {
-//       LIMIT_SWITCH3 = 0;
-//     }
-//   }
-// }
+      // Parse RS485 commands
+      switch (command) {
+        case CMD_CC_ID:
+          sendPC("cc_ACK");
+          break;
 
-void checkPin() {
-  // Falling
-  if (limitSwitch1 == 0 && LIMIT_SWITCH1 == 0) {
-    LIMIT_SWITCH1 = 1;
-    onPosition1();
-    disableStepper();
-  } else {
-    if (limitSwitch1 == 1 && LIMIT_SWITCH1 == 1) {
-      LIMIT_SWITCH1 = 0;
+        case CMD_CC_ON_VALVE:
+          token = findToken(holder.c_str());
+          sendPC("cc_ACK_VALVE_ON:" + token);
+          break;
+
+        case CMD_CC_OFF_VALVE:
+          token = findToken(holder.c_str());
+          sendPC("cc_ACK_VALVE_OFF:" + token);
+          break;
+
+        default:
+          sendPC("cc_UNKNOWN_CMD");
+          break;
+      }
     }
   }
 }
 
-// Read From VCP
-void readPC() {
-  // Disable the ISR during handling
-  pc.attach(0);
+void realtimeTick() {
+  led1 = !led1;
+  statusLED = !statusLED;
+  event.set(REALTIME_TICK_S);
+}
 
-  // Note: you need to actually read from the serial to clear the RX interrupt
-  //char _buffer[128];
+//****** ISR handles ******//
+void commandISR() {
+  //event.set(COMMAND_S);
   string holder;
-  cJSON *json;
-  // parameters list
-  // factor: scale of 3V
-  // ccles: number of periods to run
-  //int move=0, trigger=0;
-  int _speed = speed;
-
-  int errorStatus=0;
-
   char temp;
+
   while(temp != '\n') {
     temp = pc.getc();
     holder += temp;
   }
-  if (holder.length() < 5) return;
 
-  json = cJSON_Parse(holder.c_str());
-  if (!json) {
-    printf("Error before: [%s]\n", cJSON_GetErrorPtr());
-  } else {
-    // move = cJSON_GetObjectItem(json, "move")->valueint;
-    // trigger = cJSON_GetObjectItem(json, "trigger")->valueint;
-    _speed = cJSON_GetObjectItem(json, "speed")->valueint;
-    cJSON_Delete(json);
+  //printf("%s\n", holder.c_str());
 
-    if (_speed <=100 || _speed >= 500) {
-      printf("Motor speed must be within [100 - 500]\n");
-    } else {
-      printf("Motor speed set to [%d]\n", _speed);
-      speed = _speed;
-    }
-  }
-
-  // Set COMMAND_FLAG to true, ready to handle inside main
-
-  // Move Stepper Motor
-  // if (move != 0) {
-  //   COMMAND_FLAG = 1;
-  // }
-  //
-  // if (trigger !=0) {
-  //
-  // }
-
-  // Restore ISR when everything is done:
-  pc.attach(&readPC);
-}
-
-void readRS485() {
-  // Disable the ISR during handling
-  rs485.attach(0);
-  // Note: you need to actually read from the serial to clear the RX interrupt
-  //char _buffer[128];
-  string holder;
-  cJSON *json;
-  // parameters list
-  // factor: scale of 3V
-  // ccles: number of periods to run
-  //int move=0, trigger=0;
-
-  int errorStatus=0;
-  int command = 0;
-
-  char temp;
-  while(temp != '\n') {
-    temp = rs485.getc();
-    holder += temp;
-  }
-  // NOTE: cannot directly return from a ISR
-  if (holder.length() < 5) command = ERR_CC_CMD_TOOSHORT;
-
-  if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
-  if (isSubString(holder, "cc_MOVE_1")) command = CMD_CC_MOVE_1;
-  if (isSubString(holder, "cc_MOVE_2")) command = CMD_CC_MOVE_2;
-  if (isSubString(holder, "cc_MOVE_3")) command = CMD_CC_MOVE_3;
-  if (isSubString(holder, "cc_TRIGGER_1")) command = CMD_CC_TRIGGER_1;
-  if (isSubString(holder, "cc_TRIGGER_2")) command = CMD_CC_TRIGGER_2;
-  if (isSubString(holder, "cc_TRIGGER_3")) command = CMD_CC_TRIGGER_3;
-  if (isSubString(holder, "cc_TRIGGER_4")) command = CMD_CC_TRIGGER_4;
-
-  // Parse RS485 commands
-  switch (command) {
-    case CMD_CC_ID:
-      sendRS485("cc_ACK");
-      break;
-
-    case CMD_CC_MOVE_1:
-      move = 1;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_MOVE_2:
-      move = 2;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_MOVE_3:
-      move = 3;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_1:
-      trigger = 1;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_2:
-      trigger = 2;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_3:
-      trigger = 3;
-      COMMAND_FLAG = 1;
-      break;
-
-    case CMD_CC_TRIGGER_4:
-      trigger = 4;
-      COMMAND_FLAG = 1;
-      break;
-
-    default:
-      //sendRS485("cc_UNKNOWN_CMD");
-      break;
-  }
-
-  // Restore ISR when everything is done:
-  rs485.attach(&readRS485);
-}
-
-int main() {
-  led2 = 1;
-  resetA = 1;
-  resetB = 1;
-
-  RST_EN = 0;
-
-  highPowerLED1 = 0;
-  highPowerLED2 = 0;
-  highPowerLED3 = 0;
-  highPowerLED4 = 0;
-
-  led3.flash(1);
-  led4.flash(3);
-
-  flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
-  ticker.attach(&checkPin, 0.02);
-
-  printf("version: [%d]\n", 121);
-  sendRS485("cc_init");
-
-  pc.attach(&readPC);
-  rs485.attach(&readRS485);
-
-  while(1) {
-    if (COMMAND_FLAG == 1) {
-      //pc.printf("To Move Motor %d", move);
-      COMMAND_FLAG = 0;
-      moveMotor(move, speed);
-      // TODO: temp put pos2 feedback here
-      if (move ==2) {
-        onPosition2();
-      }
-      if (move ==3) {
-        onPosition3();
-      }
-      triggerLED(trigger);
-      move = 0;
-      trigger = 0;
-    }
-    wait(0.1f);
-  }
+  cmd_t *sent_cmd = cmd_box.alloc();
+  strcpy(sent_cmd->cmdStr, holder.c_str());
+  cmd_box.put(sent_cmd);
 }
