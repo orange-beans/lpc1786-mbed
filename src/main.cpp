@@ -10,22 +10,18 @@
 
 //****** Define User Variables ******//
 typedef struct {
-  // unsigned int valve1;
-  // unsigned int valve2;
-  // unsigned int valve3;
-  // unsigned int valve4;
-  // unsigned int valve5;
-  // unsigned int valve6;
-  // unsigned int valve7;
-  // unsigned int valve8;
-  // unsigned int valve9;
-  // unsigned int valve10;
+  bool isChanged;
   unsigned char valves[10]; // specified the size
+  unsigned int motorSpeed;
+  unsigned int motorDistance;
 } system_setting_t;
 
-system_setting_t system_setting = { {0,0,0,0,0 ,0,0,0,0,0} };
+system_setting_t system_setting = { false, {0,0,0,0,0 ,0,0,0,0,0}, 450, 0 };
 
 unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
+
+#define MOTOR_DISTANCE 10
+#define RAMP_STEPS 25
 
 //****** Define Commands ******//
 #define CMD_CC_ID 0x10
@@ -152,6 +148,14 @@ void controlValve() {
   valve4 = system_setting.valves[3] == 0 ? 0 : 1;
 }
 
+void moveForward(int speed, int distance = MOTOR_DISTANCE) {
+  stepperB.step(distance, 1, speed, false);
+}
+
+void moveBackward(int speed, int distance = MOTOR_DISTANCE) {
+  stepperB.step(distance, 0, speed, false);
+}
+
 //****** System Init ******//
 void initSystem() {
 
@@ -203,8 +207,14 @@ void realtimeHandle() {
 
     // 2.Do realtime tasks
     // sendPC("realtime");
-    controlValve();
+    if (system_setting.isChanged == true) {
+      controlValve();
+      moveForward(system_setting.motorSpeed, system_setting.motorDistance);
 
+      // reset some flags
+      system_setting.isChanged = false;
+      system_setting.motorDistance = 0;
+    }
   }
 }
 
@@ -262,6 +272,7 @@ void commandHandle() {
       if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
       if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
       if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
+      if (isSubString(holder, "cc_ROTATE_MOTOR")) command = CMD_CC_ROTATE_MOTOR;
 
       // Parse RS485 commands
       switch (command) {
@@ -274,6 +285,7 @@ void commandHandle() {
 
           if (token > 0 && token < 11) {
             system_setting.valves[token-1] = 1;
+            system_setting.isChanged = true;
             sendPC("cc_ACK_VALVE_ON:" + ToString(token));
             sendPC("current state:" + ToString(system_setting.valves));
           } else {
@@ -285,6 +297,7 @@ void commandHandle() {
           token = findToken(holder.c_str());
 
           if (token > 0 && token < 11) {
+            system_setting.isChanged = true;
             system_setting.valves[token-1] = 0;
             sendPC("cc_ACK_VALVE_OFF:" + ToString(token));
             sendPC("current state:" + ToString(system_setting.valves));
@@ -293,6 +306,16 @@ void commandHandle() {
           }
 
           break;
+
+        case CMD_CC_ROTATE_MOTOR:
+          token = findToken(holder.c_str());
+
+          if (token > 0 && token <=1000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance = token;
+          }
+          break;
+
 
         default:
           sendPC("cc_UNKNOWN_CMD");
