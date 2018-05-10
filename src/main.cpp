@@ -31,6 +31,7 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 
 #define CMD_CC_ROTATE_MOTOR 0x40
 #define CMD_CC_HOME_MOTOR   0x41
+#define CMD_CC_SET_SPEED    0x42
 
 #define CMD_CC_ON_ULTRA  0x50
 #define CMD_CC_OFF_ULTRA 0x51
@@ -273,6 +274,7 @@ void commandHandle() {
       if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
       if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
       if (isSubString(holder, "cc_ROTATE_MOTOR")) command = CMD_CC_ROTATE_MOTOR;
+      if (isSubString(holder, "cc_SET_SPEED")) command = CMD_CC_SET_SPEED;
 
       // Parse RS485 commands
       switch (command) {
@@ -289,7 +291,7 @@ void commandHandle() {
             sendPC("cc_ACK_VALVE_ON:" + ToString(token));
             sendPC("current state:" + ToString(system_setting.valves));
           } else {
-            sendPC("cc_UNKNOW_VALVE_NO");
+            sendPC("cc_ERR_INVALID_VALVE_NO");
           }
           break;
 
@@ -302,7 +304,7 @@ void commandHandle() {
             sendPC("cc_ACK_VALVE_OFF:" + ToString(token));
             sendPC("current state:" + ToString(system_setting.valves));
           } else {
-            sendPC("cc_UNKNOW_VALVE_NO");
+            sendPC("cc_ERR_INVALID_VALVE_NO");
           }
 
           break;
@@ -313,12 +315,24 @@ void commandHandle() {
           if (token > 0 && token <=1000) {
             system_setting.isChanged = true;
             system_setting.motorDistance = token;
+          } else {
+            sendPC("cc_ERR_INVALID_MOTOR_DISTANCE");
           }
           break;
 
+        case CMD_CC_SET_SPEED:
+          token = findToken(holder.c_str());
+
+          if (token >= 100 & token <=1000) {
+            system_setting.isChanged = true;
+            system_setting.motorSpeed = token;
+          } else {
+            sendPC("cc_ERR_INVALID_MOTOR_SPEED");
+          }
+          break;
 
         default:
-          sendPC("cc_UNKNOWN_CMD");
+          sendPC("cc_ERR_UNKNOWN_CMD");
           break;
       }
     }
