@@ -32,6 +32,7 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 #define CMD_CC_ROTATE_MOTOR 0x40
 #define CMD_CC_HOME_MOTOR   0x41
 #define CMD_CC_SET_SPEED    0x42
+#define CMD_CC_SHAKE_MOTOR  0x44
 
 #define CMD_CC_ON_ULTRA  0x50
 #define CMD_CC_OFF_ULTRA 0x51
@@ -78,11 +79,15 @@ Thread realtimeThread(osPriorityRealtime, MEDIUM_STACK_SIZE, NULL, NULL);
 //Thread operateThread(osPriorityAboveNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 Thread displayTread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 Thread commandThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+// NOTE: motor has to be put at highest pority
+Thread testThread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 
 // Define threads functions
 void realtimeHandle();
 void commandHandle();
 void displayHandle();
+
+void testHandle();
 
 void realtimeTick();
 //****** Define ISR ******//
@@ -312,7 +317,7 @@ void commandHandle() {
         case CMD_CC_ROTATE_MOTOR:
           token = findToken(holder.c_str());
 
-          if (token > 0 && token <=1000) {
+          if (token > 0 && token <=5000) {
             system_setting.isChanged = true;
             system_setting.motorDistance = token;
           } else {
@@ -323,7 +328,7 @@ void commandHandle() {
         case CMD_CC_SET_SPEED:
           token = findToken(holder.c_str());
 
-          if (token >= 100 & token <=1000) {
+          if (token >= 100 & token <=1300) {
             system_setting.isChanged = true;
             system_setting.motorSpeed = token;
           } else {
