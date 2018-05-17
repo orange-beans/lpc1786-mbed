@@ -155,7 +155,7 @@ void controlValve() {
 }
 
 void moveForward(int speed, int distance = MOTOR_DISTANCE) {
-  stepperB.step(distance, 1, speed, true);
+  stepperB.step(distance, 1, speed, false);
 }
 
 void moveBackward(int speed, int distance = MOTOR_DISTANCE) {
