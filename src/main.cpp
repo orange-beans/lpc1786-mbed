@@ -284,6 +284,9 @@ void commandHandle() {
       if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
       if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
       if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
+
+      // TODO: remove this following line
+      if (isSubString(holder, "cc_ROTATE_MOTOR")) command = CMD_CC_ROTATE_CW;
       if (isSubString(holder, "cc_ROTATE_CW")) command = CMD_CC_ROTATE_CW;
       if (isSubString(holder, "cc_ROTATE_CCW")) command = CMD_CC_ROTATE_CCW;
       if (isSubString(holder, "cc_SET_SPEED")) command = CMD_CC_SET_SPEED;
