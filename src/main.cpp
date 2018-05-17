@@ -13,7 +13,7 @@ typedef struct {
   bool isChanged;
   unsigned char valves[10]; // specified the size
   unsigned int motorSpeed;
-  unsigned int motorDistance;
+  int motorDistance;
 } system_setting_t;
 
 system_setting_t system_setting = { false, {0,0,0,0,0 ,0,0,0,0,0}, 450, 0 };
@@ -29,9 +29,10 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 #define CMD_CC_ON_VALVE   0x30
 #define CMD_CC_OFF_VALVE  0x31
 
-#define CMD_CC_ROTATE_MOTOR 0x40
-#define CMD_CC_HOME_MOTOR   0x41
-#define CMD_CC_SET_SPEED    0x42
+#define CMD_CC_ROTATE_CW    0x40
+#define CMD_CC_ROTATE_CCW   0x41
+#define CMD_CC_HOME_MOTOR   0x42
+#define CMD_CC_SET_SPEED    0x43
 #define CMD_CC_SHAKE_MOTOR  0x44
 
 #define CMD_CC_ON_ULTRA  0x50
@@ -162,6 +163,11 @@ void moveBackward(int speed, int distance = MOTOR_DISTANCE) {
   stepperB.step(distance, 0, speed, false);
 }
 
+void moveMotor(int speed, int distance = MOTOR_DISTANCE) {
+  if (distance >0) moveForward(speed, distance);
+  else moveBackward(speed, abs(distance));
+}
+
 //****** System Init ******//
 void initSystem() {
 
@@ -215,7 +221,7 @@ void realtimeHandle() {
     // sendPC("realtime");
     if (system_setting.isChanged == true) {
       controlValve();
-      moveForward(system_setting.motorSpeed, system_setting.motorDistance);
+      moveMotor(system_setting.motorSpeed, system_setting.motorDistance);
 
       // reset some flags
       system_setting.isChanged = false;
@@ -278,7 +284,8 @@ void commandHandle() {
       if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
       if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
       if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
-      if (isSubString(holder, "cc_ROTATE_MOTOR")) command = CMD_CC_ROTATE_MOTOR;
+      if (isSubString(holder, "cc_ROTATE_CW")) command = CMD_CC_ROTATE_CW;
+      if (isSubString(holder, "cc_ROTATE_CCW")) command = CMD_CC_ROTATE_CCW;
       if (isSubString(holder, "cc_SET_SPEED")) command = CMD_CC_SET_SPEED;
 
       // Parse RS485 commands
@@ -314,12 +321,23 @@ void commandHandle() {
 
           break;
 
-        case CMD_CC_ROTATE_MOTOR:
+        case CMD_CC_ROTATE_CW:
           token = findToken(holder.c_str());
 
           if (token > 0 && token <=5000) {
             system_setting.isChanged = true;
             system_setting.motorDistance = token;
+          } else {
+            sendPC("cc_ERR_INVALID_MOTOR_DISTANCE");
+          }
+          break;
+
+        case CMD_CC_ROTATE_CCW:
+          token = findToken(holder.c_str());
+
+          if (token > 0 && token <=5000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance = -1 * token;
           } else {
             sendPC("cc_ERR_INVALID_MOTOR_DISTANCE");
           }
