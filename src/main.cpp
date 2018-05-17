@@ -155,7 +155,7 @@ void controlValve() {
 }
 
 void moveForward(int speed, int distance = MOTOR_DISTANCE) {
-  stepperB.step(distance, 1, speed, false);
+  stepperB.step(distance, 1, speed, true);
 }
 
 void moveBackward(int speed, int distance = MOTOR_DISTANCE) {
@@ -328,7 +328,7 @@ void commandHandle() {
         case CMD_CC_SET_SPEED:
           token = findToken(holder.c_str());
 
-          if (token >= 100 & token <=1300) {
+          if (token >= 1 & token <=1300) {
             system_setting.isChanged = true;
             system_setting.motorSpeed = token;
           } else {
