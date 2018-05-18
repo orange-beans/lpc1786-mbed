@@ -57,10 +57,16 @@ stepper stepperA(p5, p6);
 stepper stepperB(p7, p8);
 
 // valve control
-DigitalOut valve1(p26);
-DigitalOut valve2(p27);
-DigitalOut valve3(p28);
-DigitalOut valve4(p29);
+DigitalOut valve1(p21);
+DigitalOut valve2(p22);
+DigitalOut valve3(p23);
+DigitalOut valve4(p24);
+DigitalOut valve5(p25);
+DigitalOut valve6(p26);
+DigitalOut valve7(p27);
+DigitalOut valve8(p28);
+DigitalOut valve9(p29);
+DigitalOut valve10(p30);
 
 // //ADC pins
 // AnalogIn analogInA(p15);
@@ -153,6 +159,10 @@ void controlValve() {
   valve2 = system_setting.valves[1] == 0 ? 0 : 1;
   valve3 = system_setting.valves[2] == 0 ? 0 : 1;
   valve4 = system_setting.valves[3] == 0 ? 0 : 1;
+  valve5 = system_setting.valves[4] == 0 ? 0 : 1;
+  valve6 = system_setting.valves[5] == 0 ? 0 : 1;
+  valve7 = system_setting.valves[6] == 0 ? 0 : 1;
+  valve8 = system_setting.valves[7] == 0 ? 0 : 1;
 }
 
 void moveForward(int speed, int distance = MOTOR_DISTANCE) {
