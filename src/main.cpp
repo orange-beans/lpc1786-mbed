@@ -9,7 +9,7 @@
 // 12V speed set at 400 steps/second
 // 488 Just right
 // #define MOTOR_DISTANCE 482
-#define MOTOR_DISTANCE 472
+#define MOTOR_DISTANCE 470
 #define RAMP_STEPS 25
 
 // RS485 commands set
@@ -21,6 +21,8 @@
 #define CMD_CC_TRIGGER_2 0x32
 #define CMD_CC_TRIGGER_3 0x33
 #define CMD_CC_TRIGGER_4 0x34
+
+#define CMD_CC_RESET_WB 0x80
 
 #define ERR_CC_CMD_UNKNOWN 0xf0
 #define ERR_CC_CMD_TOOSHORT 0xf1
@@ -80,6 +82,9 @@ DigitalOut highPowerLED2(p27);
 DigitalOut highPowerLED3(p28);
 DigitalOut highPowerLED4(p29);
 
+// Reset WB
+DigitalOut wbResetPin(p30);
+
 // Local Helpers
 bool isSubString(string str1, string str2) {
   return str1.find(str2) != std::string::npos;
@@ -93,6 +98,12 @@ void flip() {
   led2 = !led2;
 }
 
+void resetWB() {
+  wbResetPin = 0;
+  wait_ms(2);
+  wbResetPin = 1;
+}
+
 void disableStepper() {
   resetA = 0;
   resetB = 0;
@@ -103,6 +114,41 @@ void enableStepper() {
   resetA = 1;
   resetB = 1;
   wait_ms(1);
+}
+
+void sendFeedback(string paraName,int para) {
+  printf("{ \"%s\": %d }\n", paraName.c_str(), para);
+}
+
+void sendRS485(string message) {
+  RST_EN = 1;
+  wait_ms(1);
+  rs485.printf("{%s}\n", message.c_str());
+  // NOTE: this delay is essiential for message to be fully transimitted
+  // increate the delay time if message found being cut half-way
+  wait_ms(4);
+  RST_EN = 0;
+}
+
+void onPosition1() {
+  //disableStepper();
+  sendFeedback("position", 1);
+  sendRS485("cc_POSITION_1");
+  //wait_ms(50);
+}
+
+void onPosition2() {
+  disableStepper();
+  sendFeedback("position", 2);
+  sendRS485("cc_POSITION_2");
+  //wait_ms(50);
+}
+
+void onPosition3() {
+  disableStepper();
+  sendFeedback("position", 3);
+  sendRS485("cc_POSITION_3");
+  //wait_ms(50);
 }
 
 void moveForward(int speed) {
@@ -132,7 +178,12 @@ void moveMotor(int pos, int speed) {
   enableStepper();
   switch (pos) {
     case 1:
-      moveBackward(speed);
+      if (LIMIT_SWITCH1 == 1) {
+        // Already home, do nothing
+        onPosition1();
+      } else {
+        moveBackward(speed);
+      }
       break;
     case 2:
       moveForward(speed);
@@ -171,43 +222,6 @@ void triggerLED(int led_number) {
   highPowerLED4 = 0;
   return;
 }
-
-void sendFeedback(string paraName,int para) {
-  printf("{ \"%s\": %d }\n", paraName.c_str(), para);
-}
-
-void sendRS485(string message) {
-  RST_EN = 1;
-  wait_ms(1);
-  rs485.printf("{%s}\n", message.c_str());
-  // NOTE: this delay is essiential for message to be fully transimitted
-  // increate the delay time if message found being cut half-way
-  wait_ms(4);
-  RST_EN = 0;
-}
-
-
-void onPosition1() {
-  //disableStepper();
-  sendFeedback("position", 1);
-  sendRS485("cc_POSITION_1");
-  //wait_ms(50);
-}
-
-void onPosition2() {
-  disableStepper();
-  sendFeedback("position", 2);
-  sendRS485("cc_POSITION_2");
-  //wait_ms(50);
-}
-
-void onPosition3() {
-  disableStepper();
-  sendFeedback("position", 3);
-  sendRS485("cc_POSITION_3");
-  //wait_ms(50);
-}
-
 
 // void checkPinOld() {
 //   // Don't disable Motor continously
@@ -348,6 +362,8 @@ void readRS485() {
   if (isSubString(holder, "cc_TRIGGER_3")) command = CMD_CC_TRIGGER_3;
   if (isSubString(holder, "cc_TRIGGER_4")) command = CMD_CC_TRIGGER_4;
 
+  if (isSubString(holder, "cc_RESET_WB")) command = CMD_CC_RESET_WB;
+
   // Parse RS485 commands
   switch (command) {
     case CMD_CC_ID:
@@ -389,6 +405,10 @@ void readRS485() {
       COMMAND_FLAG = 1;
       break;
 
+    case CMD_CC_RESET_WB:
+      resetWB();
+      break;
+
     default:
       //sendRS485("cc_UNKNOWN_CMD");
       break;
@@ -410,11 +430,13 @@ int main() {
   highPowerLED3 = 0;
   highPowerLED4 = 0;
 
+  wbResetPin = 1;
+
   led3.flash(1);
   led4.flash(3);
 
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
-  ticker.attach(&checkPin, 0.02);
+  ticker.attach(&checkPin, 0.01);
 
   printf("version: [%d]\n", 121);
   sendRS485("cc_init");
