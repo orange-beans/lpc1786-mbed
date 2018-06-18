@@ -178,7 +178,7 @@ void moveMotor(int pos, int speed) {
   enableStepper();
   switch (pos) {
     case 1:
-      if (LIMIT_SWITCH1 == 1) {
+      if (limitSwitch1 == 0) {
         // Already home, do nothing
         onPosition1();
       } else {
@@ -438,7 +438,7 @@ int main() {
   flipper.attach(&flip, 1); // the address of the function to be attached (flip) and the interval (2 seconds)
   ticker.attach(&checkPin, 0.01);
 
-  printf("version: [%d]\n", 121);
+  printf("version: [%d]\n", 131);
   sendRS485("cc_init");
 
   pc.attach(&readPC);
