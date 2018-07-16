@@ -17,9 +17,12 @@
 
 // This interval needs to be larger than MAX31855 poll interval
 #define REALTIME_INTERVAL   200
-#define INTERRUPT_INTERVAL  100
+#define INTERRUPT_INTERVAL  10
 
 #define ON 1
 #define OFF 0
+
+#define HIGH 1
+#define LOW  0
 
 #endif /* __MAIN_H */

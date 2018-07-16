@@ -17,6 +17,9 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 string STARTDELIMITER = ":";
 string STOPDELIMITER = "\n";
 
+// Temp check input pin
+unsigned char dInTriggered = 255;
+
 //****** Define Function Pins ******//
 // DigitalOut led1(LED1);
 // DigitalOut led2(LED2);
@@ -295,6 +298,13 @@ void realtimeHandle() {
     // sent_mail->output = output;
     // mail_box.put(sent_mail);
 
+    gOled.clearDisplay();
+    gOled.setTextCursor(0,0);
+    // gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
+    gOled.printf("Current stage %d\r\n", counter);
+    // gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
+    gOled.display();
+
     // 2.Do realtime tasks
     if (system_setting.isChanged == true) {
       sendPC("Executing Command");
@@ -327,7 +337,7 @@ void interruptHandle() {
     event.wait_all(INTERRUPT_S);
 
     // 2.Do tasks
-    sendPC("External Interrupt triggered");
+    pc.printf("External Interrupt triggered:%d\r\n", dInTriggered);
 
     // TODO: test disable steppers
     disableStepper0();
@@ -624,11 +634,20 @@ void realtimeTick() {
   event.set(REALTIME_TICK_S);
 }
 
-unsigned char pinRecord = 1;
+unsigned char pinRecord0 = HIGH;
+unsigned char pinRecord1 = HIGH;
 
 void interruptTick() {
-  if (digitalIn0.read() == 0 && pinRecord == 1) {
+  if (digitalIn0.read() == LOW && pinRecord0 == HIGH) {
+    dInTriggered = 0;
     event.set(INTERRUPT_S);
   }
-  pinRecord = digitalIn0.read();
+
+  if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
+    dInTriggered = 1;
+    event.set(INTERRUPT_S);
+  }
+  
+  pinRecord0 = digitalIn0.read();
+  pinRecord1 = digitalIn1.read();
 }
