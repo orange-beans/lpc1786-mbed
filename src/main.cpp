@@ -1,104 +1,93 @@
 #include "mbed.h"
 #include "mbed_events.h"
 #include "main.h"
+#include "profile.h"
 #include <stdlib.h>
 #include <sstream>
 #include <string>
-#include <cJSON.h>
 #include <Stepper.h>
-#include <Servo.h>
+#include <MAX31855.h>
+#include <Adafruit_SSD1306.h>
 
-//****** Define User Variables ******//
-typedef struct {
-  bool isChanged;
-  unsigned char valves[10]; // specified the size
-  unsigned int motorSpeed;
-  int motorDistance;
-} system_setting_t;
-
-system_setting_t system_setting = { false, {0,0,0,0,0 ,0,0,0,0,0}, 450, 0 };
-
+//****** Configure User Variables ******//
+string VERSION = "180716_01";
+system_setting_t system_setting = { false, 10, {0,0,0,0}, 0, {0,0,0,0 ,0,0,0,0}, 0, {500, 500}, {0, 0}};
 unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
-
-#define MOTOR_DISTANCE 10
-#define RAMP_STEPS 25
-
-//****** Define Commands ******//
-#define CMD_CC_ID 0x10
-
-#define CMD_CC_ON_VALVE   0x30
-#define CMD_CC_OFF_VALVE  0x31
-
-#define CMD_CC_ROTATE_CW    0x40
-#define CMD_CC_ROTATE_CCW   0x41
-#define CMD_CC_HOME_MOTOR   0x42
-#define CMD_CC_SET_SPEED    0x43
-#define CMD_CC_SHAKE_MOTOR  0x44
-
-#define CMD_CC_ON_ULTRA  0x50
-#define CMD_CC_OFF_ULTRA 0x51
-
-#define CMD_CC_ON_PUMP   0x60
-#define CMD_CC_OFF_PUMP  0x61
-
-#define ERR_CC_CMD_UNKNOWN 0xf0
-#define ERR_CC_CMD_TOOSHORT 0xf1
+// find Command Token
+string STARTDELIMITER = ":";
+string STOPDELIMITER = "\n";
 
 //****** Define Function Pins ******//
-DigitalOut led1(LED1);
-DigitalOut led2(LED2);
-DigitalOut led3(LED3);
-DigitalOut led4(LED4);
+// DigitalOut led1(LED1);
+// DigitalOut led2(LED2);
+// DigitalOut led3(LED3);
+// DigitalOut led4(LED4);
+
+// PWM Outputs
+PwmOut pwmOut0(p21);
+PwmOut pwmOut1(p22);
+
+// Digital Outputs
+BusOut digitalOuts(p23, p24, p25, p26, p27, p28, p29, p30);
+
+// Digital Inputs
+// BusIn digitalIns(PC_0, PC_1, PC_2, PC_3, PC_4, PC_5, PC_6, PC_7); // Change these pins to buttons on your board.
+
+//InterruptIn digitalIn(PC_13);
+DigitalIn digitalIn0(p13);
+DigitalIn digitalIn1(p14);
+
+// Analog Outputs
+AnalogOut analogOut0(p18);
+
+// Analog Inputs
+AnalogIn analogIn0(p15);
+AnalogIn analogIn1(p16);
+AnalogIn analogIn2(p17);
+AnalogIn analogIn3(p19);
 
 // Stepper motor control
-// stepperA is at connector P3
-// stepperB is at connector P4
-stepper stepperA(p5, p6);
-stepper stepperB(p7, p8);
+stepper stepper0(p5, p6);
+DigitalOut stepper0En(p11);
 
-// valve control
-DigitalOut valve1(p21);
-DigitalOut valve2(p22);
-DigitalOut valve3(p23);
-DigitalOut valve4(p24);
-DigitalOut valve5(p25);
-DigitalOut valve6(p26);
-DigitalOut valve7(p27);
-DigitalOut valve8(p28);
-DigitalOut valve9(p29);
-DigitalOut valve10(p30);
-
-// //ADC pins
-// AnalogIn analogInA(p15);
-// AnalogIn analogInB(p16);
-//
-// //PWM pins
-// PwmOut heater(p21);
-// PwmOut cooler(p22);
+stepper stepper1(p7, p8);
+DigitalOut stepper1En(p12);
 
 // Setup Serial Ports
 Serial pc(USBTX, USBRX, 115200);
-//Serial dev(p28, p27, 115200);
+
+// Setup SPI
+// SPI thermoSPI(PB_15, PB_14, PB_13);
+// max31855 maxThermo(thermoSPI, PB_12);
+
+// NOTE: 
+// 1. PC_9 will cause problem, the program will not execute;
+// 2. I2CPreInit not working;
+// Setup I2C & OLED
+// I2CPreInit gI2C(PB_9, PB_8);
+I2C gI2C(p9, p10);
+Adafruit_SSD1306_I2c gOled(gI2C, p20);
 
 //****** Define Threads ******//
 // Define threads
-Thread realtimeThread(osPriorityRealtime, MEDIUM_STACK_SIZE, NULL, NULL);
+// NOTE: motor control thread has to be put at highest pority
+Thread realtimeThread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 //Thread operateThread(osPriorityAboveNormal, MEDIUM_STACK_SIZE, NULL, NULL);
-Thread displayTread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+Thread displayTread(osPriorityBelowNormal, SMALL_STACK_SIZE, NULL, NULL);
 Thread commandThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
-// NOTE: motor has to be put at highest pority
-Thread testThread(osPriorityBelowNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+Thread interruptThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 
 // Define threads functions
 void realtimeHandle();
 void commandHandle();
 void displayHandle();
+void interruptHandle();
 
-void testHandle();
-
-void realtimeTick();
 //****** Define ISR ******//
 void commandISR();
+void realtimeTick();
+void interruptTick();
+void externalISR();
 
 //****** Define Mails ******//
 typedef struct {
@@ -108,10 +97,12 @@ typedef struct {
 
 typedef struct {
   char *cmdStr;
-} cmd_t;
+} CC_t;
 
+// NOTE: for STM32F410, more than 10 char recevied will cause system stop.
+// changed Mail size to 8 solved this issue
 Mail<mail_t, 4> mail_box;
-Mail<cmd_t, 4> cmd_box;
+Mail<CC_t, 10> CC_box;
 
 //****** Define Events ******//
 EventFlags event;
@@ -120,93 +111,167 @@ EventFlags event;
 //EventQueue queue(32 * EVENTS_EVENT_SIZE);
 
 //****** Local Helpers ******//
-template <typename T>
-std::string ToString(T val)
-{
-    std::stringstream stream;
-    stream << val;
-    return stream.str();
-}
-
 // isSubString
 bool isSubString(string str1, string str2) {
   return str1.find(str2) != std::string::npos;
 }
 
-// find Command Token
-string STARTDELIMITER = ":";
-string STOPDELIMITER = "\n";
-
-int findToken(string str) {
+void parseToken(string str, token_t * tokenHolder) {
   unsigned int first = str.find(STARTDELIMITER) + 1;
   unsigned int last = str.find(STOPDELIMITER) - 1;
   string token = str.substr(first, last-first);
-  //return token;
+
+  tokenHolder->intValue = atoi(token.c_str());
+  tokenHolder->floatValue = atof(token.c_str());
+}
+
+int parseTokenInt(string str) {
+  unsigned int first = str.find(STARTDELIMITER) + 1;
+  unsigned int last = str.find(STOPDELIMITER) - 1;
+  string token = str.substr(first, last-first);
   return atoi(token.c_str());
+}
+
+double parseTokenDouble(string str) {
+  unsigned int first = str.find(STARTDELIMITER) + 1;
+  unsigned int last = str.find(STOPDELIMITER) - 1;
+  string token = str.substr(first, last-first);
+
+  return atof(token.c_str());
 }
 
 void sendPC(string message) {
   pc.printf("{%s}\n", message.c_str());
 }
 
-void controlValve() {
-  led1 = system_setting.valves[0] == 0 ? 0 : 1;
-  led2 = system_setting.valves[1] == 0 ? 0 : 1;
-  led3 = system_setting.valves[2] == 0 ? 0 : 1;
-  led4 = system_setting.valves[3] == 0 ? 0 : 1;
+void setPWM() {
+  // Set PWM period
+  pwmOut0.period_ms(system_setting.pwmPeriod);
+  pwmOut1.period_ms(system_setting.pwmPeriod);
+  // pwmOut2.period_ms(system_setting.pwmPeriod);
+  // pwmOut3.period_ms(system_setting.pwmPeriod);
 
-  valve1 = system_setting.valves[0] == 0 ? 0 : 1;
-  valve2 = system_setting.valves[1] == 0 ? 0 : 1;
-  valve3 = system_setting.valves[2] == 0 ? 0 : 1;
-  valve4 = system_setting.valves[3] == 0 ? 0 : 1;
-  valve5 = system_setting.valves[4] == 0 ? 0 : 1;
-  valve6 = system_setting.valves[5] == 0 ? 0 : 1;
-  valve7 = system_setting.valves[6] == 0 ? 0 : 1;
-  valve8 = system_setting.valves[7] == 0 ? 0 : 1;
+  pc.printf("ACK:%d\r\n", system_setting.pwmPeriod);
+
+  wait_ms(2);
+
+  // Set PWM dutycycle
+  pwmOut0.write((float)system_setting.pwmOuts[0]);
+  pwmOut1.write((float)system_setting.pwmOuts[1]);
+  // pwmOut2.write((float)system_setting.pwmOuts[2]);
+  // pwmOut3.write((float)system_setting.pwmOuts[3]);
 }
 
-void moveForward(int speed, int distance = MOTOR_DISTANCE) {
-  stepperB.step(distance, 1, speed, false);
+void setDouts() {
+  digitalOuts = system_setting.dOutsByte;
+  pc.printf("ACK:%d\r\n", system_setting.dOutsByte);
 }
 
-void moveBackward(int speed, int distance = MOTOR_DISTANCE) {
-  stepperB.step(distance, 0, speed, false);
+void readDins() {
+  pc.printf("ACK:%02X %02X\r\n", digitalIn0.read(), digitalIn1.read());
 }
 
-void moveMotor(int speed, int distance = MOTOR_DISTANCE) {
-  if (distance >0) moveForward(speed, distance);
-  else moveBackward(speed, abs(distance));
+void readAin(unsigned char channel) {
+  if (channel == 0) pc.printf("ACK:%3.3f\r\n", analogIn0.read());
+  if (channel == 1) pc.printf("ACK:%3.3f\r\n", analogIn1.read());
+  if (channel == 2) pc.printf("ACK:%3.3f\r\n", analogIn2.read());
+  if (channel == 3) pc.printf("ACK:%3.3f\r\n", analogIn3.read());
+}
+
+void setAout() {
+  analogOut0.write(system_setting.aOutValue);
+}
+
+void moveStepper0(int speed, int distance = MOTOR_DISTANCE) {
+  if (distance >0) stepper0.step(distance, 1, speed, false);
+  else stepper0.step(abs(distance), 0, speed, false);
+}
+
+void moveStepper1(int speed, int distance = MOTOR_DISTANCE) {
+  pc.printf("Stepper1 run\r\n");
+  if (distance >0) stepper1.step(distance, 1, speed, false);
+  else stepper1.step(abs(distance), 0, speed, false);
+}
+
+void enableStepper0() {
+  stepper0En = 1;
+}
+
+void disableStepper0() {
+  stepper0En = 0;
+}
+
+void enableStepper1() {
+  stepper1En = 1;
+}
+
+void disableStepper1() {
+  stepper1En = 0;
 }
 
 //****** System Init ******//
 void initSystem() {
 
+  pc.printf("Version: %s\r\n", VERSION.c_str());
+
+  // MAX31855 init
+  // maxThermo.initialise();
+
+  // digitalIns.mode(PullNone); 
+
+  pwmOut0.period_ms(10);
+  pwmOut1.period_ms(10);
+  // pwmOut2.period_ms(10);
+  // pwmOut3.period_ms(10);
+
+  pwmOut0.write(0);
+  pwmOut1.write(0);
+  // pwmOut2.write(0);
+  // pwmOut3.write(0);
+
+  enableStepper0();
+  enableStepper1();
+
+  // Init OLED
+  gOled.clearDisplay();
+  gOled.setTextCursor(0,0);
+  // gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
+  gOled.printf("wzpsucks %3.2f\r\n", 123.45);
+  // gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
+  gOled.display();
 }
 
-//****** Main ******//
+
 int main() {
   // Init System
   initSystem();
 
   // ISR handlers
   pc.attach(&commandISR);
+  //digitalIn.fall(&externalISR);
 
   // Create a queue with the default size
   EventQueue queue;
   //queue.call_in(2000, printf, "called in 2 seconds\n");
-  queue.call_every(REALTIME_INTERVAL, realtimeTick);
   //queue.call_every(1000, blink, "called every 1 seconds\n\r");
+  
+  queue.call_every(REALTIME_INTERVAL, realtimeTick);
+  queue.call_every(INTERRUPT_INTERVAL, interruptTick);
 
   // Start Threads
   realtimeThread.start(realtimeHandle);
-  //displayTread.start(callback(displayHandle, &led1));
   commandThread.start(commandHandle);
+  interruptThread.start(interruptHandle);
   //displayTread.start(displayHandle);
 
   // events are executed by the dispatch method
   queue.dispatch();
 
-  while(true) {}
+  // NOTE: main thread is at osPriorityNormal, without a threadWait, any thread below Normal will
+  // never be executed
+  while(true) {
+    // put your main code here, to run repeatedly:
+  }
 }
 
 //****** Threads Callbacks ******//
@@ -222,21 +287,51 @@ void realtimeHandle() {
     // 1.Wait until timer tick
     event.wait_all(REALTIME_TICK_S);
 
+    // Increment counter for each realtime tick
+    counter += 1;
+
     // sent_mail = mail_box.alloc();
     // sent_mail->temperature = temperature;
     // sent_mail->output = output;
     // mail_box.put(sent_mail);
 
     // 2.Do realtime tasks
-    // sendPC("realtime");
     if (system_setting.isChanged == true) {
-      controlValve();
-      moveMotor(system_setting.motorSpeed, system_setting.motorDistance);
+      sendPC("Executing Command");
+
+      pc.printf("Before, %d \r\n", system_setting.motorDistance[1]);
+      // setPWM();
+      // setDouts();
+      // setAout();
+      if (system_setting.motorDistance[0] != 0) {
+        moveStepper0(system_setting.motorSpeed[0], system_setting.motorDistance[0]);
+        system_setting.motorDistance[0] = 0;
+      }
+      if (system_setting.motorDistance[1] != 0) {
+        moveStepper1(system_setting.motorSpeed[1], system_setting.motorDistance[1]);
+        system_setting.motorDistance[1] = 0;
+      }
 
       // reset some flags
       system_setting.isChanged = false;
-      system_setting.motorDistance = 0;
+      enableStepper0();
+      enableStepper1();
+      // system_setting.motorDistance = 0;
     }
+  }
+}
+
+void interruptHandle() {
+    while(true) {
+    // 1.Wait until interrupts
+    event.wait_all(INTERRUPT_S);
+
+    // 2.Do tasks
+    sendPC("External Interrupt triggered");
+
+    // TODO: test disable steppers
+    disableStepper0();
+    disableStepper1();
   }
 }
 
@@ -260,129 +355,255 @@ void displayHandle() {
       // printf("0x%04x/heater setpoint is: %3.1f\r\n", BACKBONE_ADDRESS, heater_setting.setpoint);
     }
 
-    led2 = !led2;
+    //led2 = !led2;
   }
 }
 
 void commandHandle() {
   osEvent evt;
-  cmd_t *received_cmd;
+  CC_t *received_cmd;
 
   string holder;
-  unsigned int token;
+  token_t tokenHolder = {0, 0};
+
   unsigned char command = 0;
-  cJSON *json;
-  unsigned char cmd_address = 0xffff;
+  // cJSON *json;
 
   while(true) {
     //event.wait_all(COMMAND_S);
-    // reset cmd_address everytime
-    cmd_address = 0xffff;
     command = 0;
 
-    evt = cmd_box.get();
+    evt = CC_box.get();
     if (evt.status == osEventMail) {
-      received_cmd = (cmd_t*)evt.value.p;
-      cmd_box.free(received_cmd);
-      // Process command
+      received_cmd = (CC_t*)evt.value.p;
+      CC_box.free(received_cmd);
 
+      // Process command
       holder = received_cmd->cmdStr;
 
       // NOTE: cannot directly return from a ISR
-      if (holder.length() < 5) command = ERR_CC_CMD_TOOSHORT;
+      if (holder.length() < 5) command = ERR_CC_TOOSHORT;
 
-      if (isSubString(holder, "cc_ID")) command = CMD_CC_ID;
-      if (isSubString(holder, "cc_ON_VALVE:")) command = CMD_CC_ON_VALVE;
-      if (isSubString(holder, "cc_OFF_VALVE:")) command = CMD_CC_OFF_VALVE;
+      if (isSubString(holder, "CC_ID")) command = CC_ID;
+      if (isSubString(holder, "CC_ON_DOUT:")) command = CC_ON_DOUT;
+      if (isSubString(holder, "CC_OFF_DOUT:")) command = CC_OFF_DOUT;
+      if (isSubString(holder, "CC_DOUTS:")) command = CC_SET_DOUTS;
 
-      // TODO: remove this following line
-      if (isSubString(holder, "cc_ROTATE_MOTOR")) command = CMD_CC_ROTATE_CW;
-      if (isSubString(holder, "cc_ROTATE_CW")) command = CMD_CC_ROTATE_CW;
-      if (isSubString(holder, "cc_ROTATE_CCW")) command = CMD_CC_ROTATE_CCW;
-      if (isSubString(holder, "cc_SET_SPEED")) command = CMD_CC_SET_SPEED;
+      if (isSubString(holder, "CC_READ_DINS")) command = CC_READ_DINS;
+
+      if (isSubString(holder, "CC_READ_AIN:")) command = CC_READ_AIN;
+      if (isSubString(holder, "CC_SET_AOUT:")) command = CC_SET_AOUT;
+
+      if (isSubString(holder, "CC_PERIOD:")) command = CC_PWM_PERIOD;
+      if (isSubString(holder, "CC_PWM0:")) command = CC_PWM0;
+      if (isSubString(holder, "CC_PWM1:")) command = CC_PWM1;
+      // if (isSubString(holder, "CC_PWM2:")) command = CC_PWM2;
+      // if (isSubString(holder, "CC_PWM3:")) command = CC_PWM3;
+
+      if (isSubString(holder, "CC_MOTOR0_CW:")) command = CC_MOTOR0_CW;
+      if (isSubString(holder, "CC_MOTOR0_CCW:")) command = CC_MOTOR0_CCW;
+      if (isSubString(holder, "CC_MOTOR0_SPEED:")) command = CC_MOTOR0_SPEED;
+
+      if (isSubString(holder, "CC_MOTOR1_CW:")) command = CC_MOTOR1_CW;
+      if (isSubString(holder, "CC_MOTOR1_CCW:")) command = CC_MOTOR1_CCW;
+      if (isSubString(holder, "CC_MOTOR1_SPEED:")) command = CC_MOTOR1_SPEED;
 
       // Parse RS485 commands
       switch (command) {
-        case CMD_CC_ID:
-          sendPC("cc_ACK");
+        case CC_ID:
+          sendPC("ACK");
           break;
 
-        case CMD_CC_ON_VALVE:
-          token = findToken(holder.c_str());
+        case CC_ON_DOUT:
+          parseToken(holder.c_str(), & tokenHolder);
 
-          if (token > 0 && token < 11) {
-            system_setting.valves[token-1] = 1;
-            system_setting.isChanged = true;
-            sendPC("cc_ACK_VALVE_ON:" + ToString(token));
-            sendPC("current state:" + ToString(system_setting.valves));
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=7 ) {
+            system_setting.dOutsByte |= 1UL << tokenHolder.intValue;
+            setDouts();
           } else {
-            sendPC("cc_ERR_INVALID_VALVE_NO");
+            sendPC("ERR:INVALID_DOUT_NO");
           }
           break;
 
-        case CMD_CC_OFF_VALVE:
-          token = findToken(holder.c_str());
+        case CC_OFF_DOUT:
+          parseToken(holder.c_str(), & tokenHolder);
 
-          if (token > 0 && token < 11) {
-            system_setting.isChanged = true;
-            system_setting.valves[token-1] = 0;
-            sendPC("cc_ACK_VALVE_OFF:" + ToString(token));
-            sendPC("current state:" + ToString(system_setting.valves));
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <= 7) {
+            system_setting.dOutsByte &= ~(1UL << tokenHolder.intValue);
+            setDouts();
           } else {
-            sendPC("cc_ERR_INVALID_VALVE_NO");
-          }
-
-          break;
-
-        case CMD_CC_ROTATE_CW:
-          token = findToken(holder.c_str());
-
-          if (token > 0 && token <=5000) {
-            system_setting.isChanged = true;
-            system_setting.motorDistance = token;
-          } else {
-            sendPC("cc_ERR_INVALID_MOTOR_DISTANCE");
+            sendPC("ERR:INVALID_DOUT_NO");
           }
           break;
 
-        case CMD_CC_ROTATE_CCW:
-          token = findToken(holder.c_str());
+        case CC_SET_DOUTS:
+          parseToken(holder.c_str(), & tokenHolder);
 
-          if (token > 0 && token <=5000) {
-            system_setting.isChanged = true;
-            system_setting.motorDistance = -1 * token;
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=255 ) {
+            system_setting.dOutsByte = tokenHolder.intValue;
+            setDouts();
           } else {
-            sendPC("cc_ERR_INVALID_MOTOR_DISTANCE");
+            sendPC("ERR:INVALID_DOUT_BYTE");
+          }
+          break;  
+
+        case CC_READ_DINS:
+          readDins();
+          break;
+
+        case CC_READ_AIN:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=3 ) {
+            readAin(tokenHolder.intValue);
+          } else {
+            sendPC("ERR:INVALID_AIN_NO");
+          }
+          break;  
+
+      case CC_SET_AOUT:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.floatValue >=0 && tokenHolder.floatValue <=1) {
+            system_setting.aOutValue = tokenHolder.floatValue;
+            setAout();
+          } else {
+            sendPC("ERR:INVALID_AOUT_VALUE");
+          }
+          break;      
+
+        case CC_PWM_PERIOD:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue >= 1 && tokenHolder.intValue <= 10000) {
+            system_setting.pwmPeriod = tokenHolder.intValue;
+            setPWM();
+          } else {
+            sendPC("ERR:INVALID_PWM_PERIOD");
+          }
+
+          break;  
+
+        case CC_PWM0:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.floatValue >=0 && tokenHolder.floatValue <=1) {
+            system_setting.pwmOuts[0] = tokenHolder.floatValue;
+            setPWM();
+          } else {
+            sendPC("ERR:INVALID_PWM_DUTYCYCLE");
           }
           break;
 
-        case CMD_CC_SET_SPEED:
-          token = findToken(holder.c_str());
+        case CC_PWM1:
+          parseToken(holder.c_str(), & tokenHolder);
 
-          if (token >= 1 & token <=1300) {
-            system_setting.isChanged = true;
-            system_setting.motorSpeed = token;
+          if (tokenHolder.floatValue >=0 && tokenHolder.floatValue <=1) {
+            system_setting.pwmOuts[1] = tokenHolder.floatValue;
+            setPWM();
           } else {
-            sendPC("cc_ERR_INVALID_MOTOR_SPEED");
+            sendPC("ERR:INVALID_PWM_DUTYCYCLE");
+          }
+          break;
+
+        // case CC_PWM2:
+        //   parseToken(holder.c_str(), & tokenHolder);
+
+        //   if (tokenHolder.floatValue >=0 && tokenHolder.floatValue <=1) {
+        //     system_setting.pwmOuts[2] = tokenHolder.floatValue;
+        //     setPWM();
+        //   } else {
+        //     sendPC("ERR:INVALID_PWM_DUTYCYCLE");
+        //   }
+        //   break;
+
+        // case CC_PWM3:
+        //   parseToken(holder.c_str(), & tokenHolder);
+
+        //   if (tokenHolder.floatValue >=0 && tokenHolder.floatValue <=1) {
+        //     system_setting.pwmOuts[3] = tokenHolder.floatValue;
+        //     setPWM();
+        //   } else {
+        //     sendPC("ERR:INVALID_PWM_DUTYCYCLE");
+        //   }
+        //   break;
+
+        case CC_MOTOR0_CW:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue > 0 && tokenHolder.intValue <=5000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance[0] = tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_DISTANCE");
+          }
+          break;
+
+        case CC_MOTOR0_CCW:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue > 0 && tokenHolder.intValue <=5000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance[0] = -1 * tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_DISTANCE");
+          }
+          break;
+
+        case CC_MOTOR0_SPEED:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue >= 1 & tokenHolder.intValue <=1300) {
+            system_setting.motorSpeed[0] = tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_SPEED");
+          }
+          break;
+
+        case CC_MOTOR1_CW:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue > 0 && tokenHolder.intValue <=5000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance[1] = tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_DISTANCE");
+          }
+          break;
+
+        case CC_MOTOR1_CCW:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue > 0 && tokenHolder.intValue <=5000) {
+            system_setting.isChanged = true;
+            system_setting.motorDistance[1] = -1 * tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_DISTANCE");
+          }
+          break;
+
+        case CC_MOTOR1_SPEED:
+          parseToken(holder.c_str(), & tokenHolder);
+
+          if (tokenHolder.intValue >= 1 & tokenHolder.intValue <=1300) {
+            system_setting.motorSpeed[1] = tokenHolder.intValue;
+          } else {
+            sendPC("ERR:INVALID_MOTOR_SPEED");
           }
           break;
 
         default:
-          sendPC("cc_ERR_UNKNOWN_CMD");
+          sendPC("ERR:UNKNOWN_CMD");
           break;
       }
     }
   }
 }
 
-void realtimeTick() {
-  // led1 = !led1;
-  event.set(REALTIME_TICK_S);
-}
-
 //****** ISR handles ******//
 void commandISR() {
   //event.set(COMMAND_S);
+
   string holder;
   char temp;
 
@@ -391,9 +612,23 @@ void commandISR() {
     holder += temp;
   }
 
-  //printf("%s\n", holder.c_str());
+  // sendPC(holder.c_str());
 
-  cmd_t *sent_cmd = cmd_box.alloc();
+  CC_t *sent_cmd = CC_box.alloc();
   strcpy(sent_cmd->cmdStr, holder.c_str());
-  cmd_box.put(sent_cmd);
+  CC_box.put(sent_cmd);
+}
+
+void realtimeTick() {
+  // led1 = !led1;
+  event.set(REALTIME_TICK_S);
+}
+
+unsigned char pinRecord = 1;
+
+void interruptTick() {
+  if (digitalIn0.read() == 0 && pinRecord == 1) {
+    event.set(INTERRUPT_S);
+  }
+  pinRecord = digitalIn0.read();
 }
