@@ -80,11 +80,15 @@ Thread displayTread(osPriorityBelowNormal, SMALL_STACK_SIZE, NULL, NULL);
 Thread commandThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 Thread interruptThread(osPriorityNormal, MEDIUM_STACK_SIZE, NULL, NULL);
 
+// TEMP process Thread
+Thread processThread(osPriorityAboveNormal, MEDIUM_STACK_SIZE, NULL, NULL);
+
 // Define threads functions
 void realtimeHandle();
 void commandHandle();
 void displayHandle();
 void interruptHandle();
+void processHandle();
 
 //****** Define ISR ******//
 void commandISR();
@@ -244,6 +248,103 @@ void initSystem() {
   gOled.display();
 }
 
+//****** Temp Process Control ******//
+void onPump() {
+  pwmOut0.write(0.8);
+}
+
+void onDout(unsigned int outPin) {
+  system_setting.dOutsByte |= 1UL << outPin;
+  setDouts();
+}
+
+void offDout(unsigned int outPin) {
+  system_setting.dOutsByte &= ~(1UL << outPin);
+  setDouts();
+}
+
+void initProcess() {
+  // STEP 0
+  onPump();
+  onDout(0);
+  onDout(4);
+  onDout(1);
+  onDout(7);
+  // STEP 1: Check homing
+  moveStepper1(system_setting.motorSpeed[1], -1000);
+  enableStepper1();
+}
+
+void process() {
+  unsigned char completeFlag = false;
+  pc.printf("Before\r\n");
+  // STEP 3: Start process when button is pressed down
+  while(digitalIn1.read() == LOW && completeFlag == false) {
+    pc.printf("During\r\n");
+    // STEP 4
+    onDout(5);
+    wait(5);
+    offDout(5);
+
+    // STEP 5
+    onDout(2);
+    wait(2);
+    onDout(8);
+    wait(10);
+    offDout(2);
+    offDout(8);
+
+    // STEP 6
+    onDout(3);
+    wait(2);
+    onDout(8);
+    wait(10);
+    offDout(3);
+    offDout(8);
+
+    // STEP 7
+    onDout(8);
+    wait(10);
+    offDout(8);
+
+    // STEP 8
+    completeFlag = true;
+  }
+}
+
+void processHandle() {
+
+  while(true) {
+    // STEP 4
+    onDout(5);
+    Thread::wait(500);
+    offDout(5);
+
+    // STEP 5
+    onDout(2);
+    Thread::wait(200);
+    onDout(8);
+    Thread::wait(1000);
+    offDout(2);
+    offDout(8);
+
+    // STEP 6
+    onDout(3);
+    Thread::wait(200);
+    onDout(8);
+    Thread::wait(1000);
+    offDout(3);
+    offDout(8);
+
+    // STEP 7
+    onDout(8);
+    Thread::wait(1000);
+    offDout(8);
+
+    // STEP 8
+    Thread::wait(100);
+  }
+}
 
 int main() {
   // Init System
@@ -258,14 +359,18 @@ int main() {
   //queue.call_in(2000, printf, "called in 2 seconds\n");
   //queue.call_every(1000, blink, "called every 1 seconds\n\r");
   
-  queue.call_every(REALTIME_INTERVAL, realtimeTick);
+  // TEMP Disable realtimeTick
+  // queue.call_every(REALTIME_INTERVAL, realtimeTick);
   queue.call_every(INTERRUPT_INTERVAL, interruptTick);
 
+  // TEMP disable realtimeHandle and commandHandle
   // Start Threads
-  realtimeThread.start(realtimeHandle);
-  commandThread.start(commandHandle);
+  // realtimeThread.start(realtimeHandle);
+  // commandThread.start(commandHandle);
   interruptThread.start(interruptHandle);
   //displayTread.start(displayHandle);
+
+  processThread.start(processHandle);
 
   // events are executed by the dispatch method
   queue.dispatch();
@@ -274,6 +379,9 @@ int main() {
   // never be executed
   while(true) {
     // put your main code here, to run repeatedly:
+    // TEMP start process
+    pc.printf("doing\r\n");
+    process();
   }
 }
 
@@ -643,10 +751,10 @@ void interruptTick() {
     event.set(INTERRUPT_S);
   }
 
-  if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
-    dInTriggered = 1;
-    event.set(INTERRUPT_S);
-  }
+  // if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
+  //   dInTriggered = 1;
+  //   event.set(INTERRUPT_S);
+  // }
   
   pinRecord0 = digitalIn0.read();
   pinRecord1 = digitalIn1.read();
