@@ -263,6 +263,10 @@ void offDout(unsigned int outPin) {
   setDouts();
 }
 
+void processWait(unsigned int delayInS) {
+  Thread::wait(delayInS * 100);
+}
+
 void initProcess() {
   // STEP 0
   onPump();
@@ -316,33 +320,32 @@ void processHandle() {
 
   while(true) {
     // STEP 4
-    onDout(5);
-    Thread::wait(500);
-    offDout(5);
+    onDout(1);
+    processWait(5);
+    offDout(1);
 
     // STEP 5
     onDout(2);
-    Thread::wait(200);
+    processWait(2);
     onDout(8);
-    Thread::wait(1000);
+    processWait(10);
     offDout(2);
     offDout(8);
 
     // STEP 6
     onDout(3);
-    Thread::wait(200);
+    processWait(2);
     onDout(8);
-    Thread::wait(1000);
+    processWait(10);
     offDout(3);
     offDout(8);
 
     // STEP 7
     onDout(8);
-    Thread::wait(1000);
+    processWait(10);
     offDout(8);
 
     // STEP 8
-    Thread::wait(100);
   }
 }
 
