@@ -31,7 +31,7 @@ PwmOut pwmOut0(p21);
 PwmOut pwmOut1(p22);
 
 // Digital Outputs
-BusOut digitalOuts(p23, p24, p25, p26, p27, p28, p29, p30);
+BusOut digitalOuts(p23, p24, p25, p26, p27, p28, p29, p30, p17, p19);
 
 // Digital Inputs
 // BusIn digitalIns(PC_0, PC_1, PC_2, PC_3, PC_4, PC_5, PC_6, PC_7); // Change these pins to buttons on your board.
@@ -46,8 +46,8 @@ AnalogOut analogOut0(p18);
 // Analog Inputs
 AnalogIn analogIn0(p15);
 AnalogIn analogIn1(p16);
-AnalogIn analogIn2(p17);
-AnalogIn analogIn3(p19);
+// AnalogIn analogIn2(p17);
+// AnalogIn analogIn3(p19);
 
 // Stepper motor control
 stepper stepper0(p5, p6);
@@ -177,8 +177,8 @@ void readDins() {
 void readAin(unsigned char channel) {
   if (channel == 0) pc.printf("ACK:%3.3f\r\n", analogIn0.read());
   if (channel == 1) pc.printf("ACK:%3.3f\r\n", analogIn1.read());
-  if (channel == 2) pc.printf("ACK:%3.3f\r\n", analogIn2.read());
-  if (channel == 3) pc.printf("ACK:%3.3f\r\n", analogIn3.read());
+  // if (channel == 2) pc.printf("ACK:%3.3f\r\n", analogIn2.read());
+  // if (channel == 3) pc.printf("ACK:%3.3f\r\n", analogIn3.read());
 }
 
 void setAout() {
@@ -427,7 +427,7 @@ void commandHandle() {
         case CC_ON_DOUT:
           parseToken(holder.c_str(), & tokenHolder);
 
-          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=7 ) {
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=9 ) {
             system_setting.dOutsByte |= 1UL << tokenHolder.intValue;
             setDouts();
           } else {
@@ -438,7 +438,7 @@ void commandHandle() {
         case CC_OFF_DOUT:
           parseToken(holder.c_str(), & tokenHolder);
 
-          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <= 7) {
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <= 9) {
             system_setting.dOutsByte &= ~(1UL << tokenHolder.intValue);
             setDouts();
           } else {
@@ -449,7 +449,7 @@ void commandHandle() {
         case CC_SET_DOUTS:
           parseToken(holder.c_str(), & tokenHolder);
 
-          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=255 ) {
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=1023 ) {
             system_setting.dOutsByte = tokenHolder.intValue;
             setDouts();
           } else {
@@ -464,7 +464,7 @@ void commandHandle() {
         case CC_READ_AIN:
           parseToken(holder.c_str(), & tokenHolder);
 
-          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=3 ) {
+          if (tokenHolder.intValue >= 0 && tokenHolder.intValue <=1 ) {
             readAin(tokenHolder.intValue);
           } else {
             sendPC("ERR:INVALID_AIN_NO");
@@ -634,11 +634,11 @@ void realtimeTick() {
   event.set(REALTIME_TICK_S);
 }
 
-unsigned char pinRecord0 = HIGH;
+unsigned char pinRecord0 = LOW;
 unsigned char pinRecord1 = HIGH;
 
 void interruptTick() {
-  if (digitalIn0.read() == LOW && pinRecord0 == HIGH) {
+  if (digitalIn0.read() == HIGH && pinRecord0 == LOW) {
     dInTriggered = 0;
     event.set(INTERRUPT_S);
   }

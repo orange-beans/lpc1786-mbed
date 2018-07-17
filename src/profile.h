@@ -21,7 +21,7 @@ typedef struct {
   bool isChanged;
   unsigned int pwmPeriod;
   double pwmOuts[4];
-  unsigned char dOutsByte;
+  unsigned int dOutsByte;
   unsigned char dIns[8];
   float aOutValue;
   unsigned int motorSpeed[2];
