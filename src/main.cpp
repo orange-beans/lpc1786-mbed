@@ -271,6 +271,10 @@ void offPump() {
   pwmOut0.write(0);
 }
 
+void moveStepper(int steps) {
+  moveStepper1(system_setting.motorSpeed[1], steps);
+}
+
 void onDout(unsigned int outPin) {
   system_setting.dOutsByte |= 1UL << outPin;
   setDouts();
@@ -282,7 +286,7 @@ void offDout(unsigned int outPin) {
 }
 
 void processWait(unsigned int delayInS) {
-  Thread::wait(delayInS * 100);
+  Thread::wait(delayInS * 1000);
 }
 
 void processHandle() {
@@ -293,17 +297,28 @@ void processHandle() {
 
     // Init process
     if (initDone != true) {
-      // STEP 0
-      reportStep(0, "System init");
+      // STEP 0: Initialization
+      digitalOuts = 1023;
+      onPump();
+      processWait(5);
+      digitalOuts = 0;
+      offPump();
+      processWait(5);
+
+      reportStep(0, "Initialization");
       onPump();
       onDout(0);
       onDout(4);
       onDout(1);
       onDout(7);
-      // STEP 1: Check homing
-      reportStep(0, "Homing");
-      // moveStepper1(system_setting.motorSpeed[1], -1000);
-      // enableStepper1();
+
+      // Check homing
+      if (digitalIn0.read() == LOW) {
+        moveStepper(-1000);
+      }
+      
+      enableStepper1();
+      reportStep(0, "Press button to start");
       initDone = true;
     }
 
@@ -314,14 +329,17 @@ void processHandle() {
 
     // Process
     if (processDone != true) {
-      // STEP 4
-      reportStep(4);
+      // ********************* //
+      // Step 1: Lysis
+      // ********************* //
+      reportStep(1, "Lysis");
+
+      // Step 1.1
       onDout(1);
       processWait(5);
       offDout(1);
 
-      // STEP 5
-      reportStep(5);
+      // Step 1.2
       onDout(2);
       processWait(2);
       onDout(8);
@@ -329,8 +347,7 @@ void processHandle() {
       offDout(2);
       offDout(8);
 
-      // STEP 6
-      reportStep(6);
+      // Step 1.3
       onDout(3);
       processWait(2);
       onDout(8);
@@ -338,26 +355,68 @@ void processHandle() {
       offDout(3);
       offDout(8);
 
-      // STEP 7
-      reportStep(7);
+      // Step 1.4
       onDout(8);
       processWait(10);
       offDout(8);
 
-      // STEP 8
-      reportStep(8, "Off D0");
+      reportStep(1, "Done");
+
+      // ********************* //
+      // Step 2: Beads-Homo
+      // ********************* //
+      reportStep(2, "Beads-Homo");
+
+      // Step 2.1
       offDout(0);
       processWait(5);
 
-      // Step 9
-      reportStep(9, "Mixing");
+      // Step 2.2
       onDout(9);
       processWait(5);
       offDout(9);
 
-      // Step 10
-      reportStep(10, "On EM");
+      // Step 2.3
       onDout(6);
+      processWait(6); // 60s
+
+      // Step 2.4
+      onDout(0);
+      processWait(5);
+
+      // Step 2.5
+      moveStepper(-20);
+      processWait(5);
+
+      // ********************* //
+      // Step3: Washing 1
+      // ********************* //
+      reportStep(3, "Washing 1");
+      
+      // Step 3.1
+      offDout(0);
+      processWait(5);
+
+      // Step 3.2
+      offDout(5);
+
+      // Step 3.3
+      onDout(9);
+      processWait(5);
+      offDout(9);
+      
+      // Step 3.4
+      onDout(5);
+      processWait(6); // 60s
+
+      // Step 3.5
+      onDout(0);
+      processWait(5);
+
+      // Step 3.6
+      moveStepper(-20);
+      processWait(5);
+
 
 
       processDone = true;
