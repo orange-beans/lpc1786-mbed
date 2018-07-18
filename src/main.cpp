@@ -171,7 +171,7 @@ void setPWM() {
 
 void setDouts() {
   digitalOuts = system_setting.dOutsByte;
-  pc.printf("ACK:%d\r\n", system_setting.dOutsByte);
+  // pc.printf("ACK:%d\r\n", system_setting.dOutsByte);
 }
 
 void readDins() {
@@ -249,8 +249,22 @@ void initSystem() {
 }
 
 //****** Temp Process Control ******//
+void reportStep(unsigned int stepNum, string message = "") {
+  pc.printf("Step %d: %s\r\n", stepNum, message.c_str());
+  // Print to OLED
+  gOled.clearDisplay();
+  gOled.setTextCursor(0,0);
+  gOled.printf("Step %d\r\n", stepNum);
+  gOled.printf("%s\r\n", message.c_str());
+  gOled.display();
+}
+
 void onPump() {
   pwmOut0.write(0.8);
+}
+
+void offPump() {
+  pwmOut0.write(0);
 }
 
 void onDout(unsigned int outPin) {
@@ -317,35 +331,73 @@ void process() {
 }
 
 void processHandle() {
+  unsigned char initDone = false;
+  unsigned char processDone = false;
 
   while(true) {
-    // STEP 4
-    onDout(1);
-    processWait(5);
-    offDout(1);
 
-    // STEP 5
-    onDout(2);
-    processWait(2);
-    onDout(8);
-    processWait(10);
-    offDout(2);
-    offDout(8);
+    // Init process
+    if (initDone != true) {
+      // STEP 0
+      reportStep(0, "System init");
+      onPump();
+      onDout(0);
+      onDout(4);
+      onDout(1);
+      onDout(7);
+      // STEP 1: Check homing
+      reportStep(1, "Homing");
+      // moveStepper1(system_setting.motorSpeed[1], -1000);
+      // enableStepper1();
+      initDone = true;
+    }
 
-    // STEP 6
-    onDout(3);
-    processWait(2);
-    onDout(8);
-    processWait(10);
-    offDout(3);
-    offDout(8);
+    // Process
+    if (processDone != true) {
+      // STEP 4
+      reportStep(4);
+      onDout(1);
+      processWait(5);
+      offDout(1);
 
-    // STEP 7
-    onDout(8);
-    processWait(10);
-    offDout(8);
+      // STEP 5
+      reportStep(5);
+      onDout(2);
+      processWait(2);
+      onDout(8);
+      processWait(10);
+      offDout(2);
+      offDout(8);
 
-    // STEP 8
+      // STEP 6
+      reportStep(6);
+      onDout(3);
+      processWait(2);
+      onDout(8);
+      processWait(10);
+      offDout(3);
+      offDout(8);
+
+      // STEP 7
+      reportStep(7);
+      onDout(8);
+      processWait(10);
+      offDout(8);
+
+      // STEP 8
+      reportStep(8);
+
+
+      // Step 9
+
+
+
+
+      processDone = true;
+    }
+
+    // Wait forever
+    Thread::wait(100);
   }
 }
 
