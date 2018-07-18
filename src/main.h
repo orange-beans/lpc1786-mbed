@@ -10,6 +10,8 @@
 #define COMMAND_S           0x02
 #define INTERRUPT_S         0x03
 
+#define PROCESS_S           0x81
+
 #define LARGE_STACK_SIZE    4096
 #define MEDIUM_STACK_SIZE   2048
 #define SMALL_STACK_SIZE    1024

@@ -243,7 +243,7 @@ void initSystem() {
   gOled.clearDisplay();
   gOled.setTextCursor(0,0);
   // gOled.printf("setpoint is: %3.1f\r\n", heater_setting.setpoint);
-  gOled.printf("wzpsucks %3.2f\r\n", 123.45);
+  gOled.printf("CC's controller %3.2f\r\n", 123.45);
   // gOled.printf("powerOutput: %3.1f%%\r\n", output*100);
   gOled.display();
 }
@@ -258,7 +258,7 @@ void reportStep(unsigned int stepNum, string message = "Running") {
   gOled.setTextCursor(0,8);
   gOled.printf("Step %d\r\n", stepNum);
   gOled.printf("%s\r\n", message.c_str());
-  // NOTE: somehow display() need to be called twice!
+  // NOTE: somehow display() need to be called twice, otherwise it will skip display
   gOled.display();
   gOled.display();
 }
@@ -285,55 +285,6 @@ void processWait(unsigned int delayInS) {
   Thread::wait(delayInS * 100);
 }
 
-void initProcess() {
-  // STEP 0
-  onPump();
-  onDout(0);
-  onDout(4);
-  onDout(1);
-  onDout(7);
-  // STEP 1: Check homing
-  moveStepper1(system_setting.motorSpeed[1], -1000);
-  enableStepper1();
-}
-
-void process() {
-  unsigned char completeFlag = false;
-  pc.printf("Before\r\n");
-  // STEP 3: Start process when button is pressed down
-  while(digitalIn1.read() == LOW && completeFlag == false) {
-    pc.printf("During\r\n");
-    // STEP 4
-    onDout(5);
-    wait(5);
-    offDout(5);
-
-    // STEP 5
-    onDout(2);
-    wait(2);
-    onDout(8);
-    wait(10);
-    offDout(2);
-    offDout(8);
-
-    // STEP 6
-    onDout(3);
-    wait(2);
-    onDout(8);
-    wait(10);
-    offDout(3);
-    offDout(8);
-
-    // STEP 7
-    onDout(8);
-    wait(10);
-    offDout(8);
-
-    // STEP 8
-    completeFlag = true;
-  }
-}
-
 void processHandle() {
   unsigned char initDone = false;
   unsigned char processDone = false;
@@ -350,11 +301,16 @@ void processHandle() {
       onDout(1);
       onDout(7);
       // STEP 1: Check homing
-      reportStep(1, "Homing");
+      reportStep(0, "Homing");
       // moveStepper1(system_setting.motorSpeed[1], -1000);
       // enableStepper1();
       initDone = true;
     }
+
+    // Wait for start signal from Button
+    event.wait_all(PROCESS_S);
+    reportStep(1, "Process starting");
+    processWait(5);
 
     // Process
     if (processDone != true) {
@@ -445,9 +401,6 @@ int main() {
   // never be executed
   while(true) {
     // put your main code here, to run repeatedly:
-    // TEMP start process
-    pc.printf("doing\r\n");
-    process();
   }
 }
 
@@ -514,8 +467,14 @@ void interruptHandle() {
     pc.printf("External Interrupt triggered:%d\r\n", dInTriggered);
 
     // TODO: test disable steppers
-    disableStepper0();
-    disableStepper1();
+    if (dInTriggered == 0) {
+      disableStepper0();
+      disableStepper1();
+    }
+
+    if (dInTriggered == 1) {
+      event.set(PROCESS_S);
+    }
   }
 }
 
@@ -817,10 +776,10 @@ void interruptTick() {
     event.set(INTERRUPT_S);
   }
 
-  // if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
-  //   dInTriggered = 1;
-  //   event.set(INTERRUPT_S);
-  // }
+  if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
+    dInTriggered = 1;
+    event.set(INTERRUPT_S);
+  }
   
   pinRecord0 = digitalIn0.read();
   pinRecord1 = digitalIn1.read();
