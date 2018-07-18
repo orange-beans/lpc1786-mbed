@@ -289,6 +289,43 @@ void processWait(unsigned int delayInS) {
   Thread::wait(delayInS * 1000);
 }
 
+void runWashing(unsigned int num) {
+  // ********************* //
+  // Step3: Washing 1
+  // ********************* //
+  reportStep(num, "Washing");
+  
+  // Step 3.1
+  offDout(0);
+  processWait(5);
+  reportStep(num, "Washing 1/6");
+
+  // Step 3.2
+  offDout(5);
+  reportStep(num, "Washing 2/6");
+
+  // Step 3.3
+  onDout(9);
+  processWait(5);
+  offDout(9);
+  reportStep(num, "Washing 3/6");
+  
+  // Step 3.4
+  onDout(5);
+  processWait(6); // 60s
+  reportStep(num, "Washing 4/6");
+
+  // Step 3.5
+  onDout(0);
+  processWait(5);
+  reportStep(num, "Washing 5/6");
+
+  // Step 3.6
+  moveStepper(-20);
+  processWait(5);
+  reportStep(num, "Washing 6/6");
+}
+
 void processHandle() {
   unsigned char initDone = false;
   unsigned char processDone = false;
@@ -338,6 +375,7 @@ void processHandle() {
       onDout(1);
       processWait(5);
       offDout(1);
+      reportStep(1, "Lysis 1/4");
 
       // Step 1.2
       onDout(2);
@@ -346,6 +384,7 @@ void processHandle() {
       processWait(10);
       offDout(2);
       offDout(8);
+      reportStep(1, "Lysis 2/4");
 
       // Step 1.3
       onDout(3);
@@ -354,13 +393,14 @@ void processHandle() {
       processWait(10);
       offDout(3);
       offDout(8);
+      reportStep(1, "Lysis 3/4");
 
       // Step 1.4
       onDout(8);
       processWait(10);
       offDout(8);
 
-      reportStep(1, "Done");
+      reportStep(1, "Lysis 4/4");
 
       // ********************* //
       // Step 2: Beads-Homo
@@ -370,54 +410,85 @@ void processHandle() {
       // Step 2.1
       offDout(0);
       processWait(5);
+      reportStep(2, "Beads-Homo 1/5");
 
       // Step 2.2
       onDout(9);
       processWait(5);
       offDout(9);
+      reportStep(2, "Beads-Homo 2/5");
 
       // Step 2.3
       onDout(6);
       processWait(6); // 60s
+      reportStep(2, "Beads-Homo 3/5");
 
       // Step 2.4
       onDout(0);
       processWait(5);
+      reportStep(2, "Beads-Homo 4/5");
 
       // Step 2.5
       moveStepper(-20);
       processWait(5);
+      reportStep(2, "Beads-Homo 5/5");
 
       // ********************* //
-      // Step3: Washing 1
+      // Step 3: Washing 1
       // ********************* //
-      reportStep(3, "Washing 1");
-      
-      // Step 3.1
+      runWashing(3);
+
+      // ********************* //
+      // Step 4: Washing 2
+      // ********************* //
+      runWashing(4);
+
+      // ********************* //
+      // Step 5: Washing 3
+      // ********************* //
+      runWashing(5);
+
+      // ********************* //
+      // Step 6: Washing 4
+      // ********************* //
+      runWashing(6);
+
+      // ********************* //
+      // Step 7: Elution
+      // ********************* //
+      reportStep(7, "Elution");
+
+      // Step 7.1
+      onDout(6);
+      processWait(6); // 60s
+      offDout(6);
+
+      // Step 7.2
       offDout(0);
       processWait(5);
 
-      // Step 3.2
+      // Step 7.3
       offDout(5);
 
-      // Step 3.3
+      // Step 7.4
       onDout(9);
       processWait(5);
       offDout(9);
-      
-      // Step 3.4
-      onDout(5);
-      processWait(6); // 60s
 
-      // Step 3.5
+      // Step 7.5
+      onDout(6);
+      processWait(6);  // 60s
+
+      // Step 7.6
       onDout(0);
-      processWait(5);
 
-      // Step 3.6
-      moveStepper(-20);
-      processWait(5);
-
-
+      // ********************* //
+      // Step 8: End
+      // ********************* //
+      if (digitalIn0.read() == LOW) {
+        moveStepper(1000);
+      }
+      reportStep(8, "End");
 
       processDone = true;
     }
