@@ -462,25 +462,31 @@ void processHandle() {
       onDout(6);
       processWait(6); // 60s
       offDout(6);
+      reportStep(7, "Elution 1/6");
 
       // Step 7.2
       offDout(0);
       processWait(5);
+      reportStep(7, "Elution 2/6");
 
       // Step 7.3
       offDout(5);
+      reportStep(7, "Elution 3/6");
 
       // Step 7.4
       onDout(9);
       processWait(5);
       offDout(9);
+      reportStep(7, "Elution 4/6");
 
       // Step 7.5
       onDout(6);
       processWait(6);  // 60s
+      reportStep(7, "Elution 5/6");
 
       // Step 7.6
       onDout(0);
+      reportStep(7, "Elution 6/6");
 
       // ********************* //
       // Step 8: End
