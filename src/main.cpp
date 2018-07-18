@@ -249,13 +249,17 @@ void initSystem() {
 }
 
 //****** Temp Process Control ******//
-void reportStep(unsigned int stepNum, string message = "") {
+void reportStep(unsigned int stepNum, string message = "Running") {
   pc.printf("Step %d: %s\r\n", stepNum, message.c_str());
   // Print to OLED
   gOled.clearDisplay();
   gOled.setTextCursor(0,0);
+  gOled.printf("MetaboScreen\r\n");
+  gOled.setTextCursor(0,8);
   gOled.printf("Step %d\r\n", stepNum);
   gOled.printf("%s\r\n", message.c_str());
+  // NOTE: somehow display() need to be called twice!
+  gOled.display();
   gOled.display();
 }
 
@@ -385,12 +389,19 @@ void processHandle() {
       offDout(8);
 
       // STEP 8
-      reportStep(8);
-
+      reportStep(8, "Off D0");
+      offDout(0);
+      processWait(5);
 
       // Step 9
+      reportStep(9, "Mixing");
+      onDout(9);
+      processWait(5);
+      offDout(9);
 
-
+      // Step 10
+      reportStep(10, "On EM");
+      onDout(6);
 
 
       processDone = true;
