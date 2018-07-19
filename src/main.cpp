@@ -335,12 +335,13 @@ void processHandle() {
     // Init process
     if (initDone != true) {
       // STEP 0: Initialization
-      digitalOuts = 1023;
+      digitalOuts = 31;
       onPump();
       processWait(5);
-      digitalOuts = 0;
+      digitalOuts = 992;
       offPump();
       processWait(5);
+      digitalOuts = 0;
 
       reportStep(0, "Initialization");
       onPump();
