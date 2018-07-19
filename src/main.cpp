@@ -17,8 +17,15 @@ unsigned char COUNT_LIMIT = 1000/REALTIME_INTERVAL;
 string STARTDELIMITER = ":";
 string STOPDELIMITER = "\n";
 
-// Temp check input pin
-unsigned char dInTriggered = 255;
+// HACK: check input pin
+#define HOMING_SENSEOR 0x10
+#define BUTTON_PRESSED 0x20
+#define BUTTON_RELEASE 0x21
+unsigned char dInTriggered = 0xff;
+
+// HACK: process flags
+unsigned char initDone = false;
+unsigned char processDone = false;
 
 //****** Define Function Pins ******//
 // DigitalOut led1(LED1);
@@ -226,8 +233,8 @@ void initSystem() {
 
   // digitalIns.mode(PullNone); 
 
-  pwmOut0.period_ms(10);
-  pwmOut1.period_ms(10);
+  pwmOut0.period_ms(100);
+  pwmOut1.period_ms(100);
   // pwmOut2.period_ms(10);
   // pwmOut3.period_ms(10);
 
@@ -254,7 +261,7 @@ void reportStep(unsigned int stepNum, string message = "Running") {
   // Print to OLED
   gOled.clearDisplay();
   gOled.setTextCursor(0,0);
-  gOled.printf("MetaboScreen\r\n");
+  gOled.printf("SMF DNA Extractor\r\n");
   gOled.setTextCursor(0,8);
   gOled.printf("Step %d\r\n", stepNum);
   gOled.printf("%s\r\n", message.c_str());
@@ -264,6 +271,10 @@ void reportStep(unsigned int stepNum, string message = "Running") {
 }
 
 void onPump() {
+  pwmOut0.write(1);
+}
+
+void onPumpHalf() {
   pwmOut0.write(0.8);
 }
 
@@ -296,39 +307,52 @@ void runWashing(unsigned int num) {
   reportStep(num, "Washing");
   
   // Step 3.1
+  reportStep(num, "Washing 1/6");
   offDout(0);
   processWait(5);
-  reportStep(num, "Washing 1/6");
-
+  
   // Step 3.2
-  offDout(5);
   reportStep(num, "Washing 2/6");
-
+  offDout(5);
+  processWait(1);
+  
   // Step 3.3
+  reportStep(num, "Washing 3/6");
   onDout(9);
   processWait(5);
   offDout(9);
-  reportStep(num, "Washing 3/6");
   
   // Step 3.4
-  onDout(5);
-  processWait(6); // 60s
   reportStep(num, "Washing 4/6");
-
+  onDout(5);
+  processWait(1); // 60s
+  
   // Step 3.5
+  reportStep(num, "Washing 5/6");
   onDout(0);
   processWait(5);
-  reportStep(num, "Washing 5/6");
-
+  
   // Step 3.6
+  reportStep(num, "Washing 6/6");
   moveStepper(-20);
   processWait(5);
-  reportStep(num, "Washing 6/6");
 }
 
 void processHandle() {
-  unsigned char initDone = false;
-  unsigned char processDone = false;
+  // unsigned char initDone = false;
+  // unsigned char processDone = false;
+
+  // while(true) {
+  //   onPump();
+  //   onDout(4);
+  //   processWait(10);
+  //   offDout(4);
+  //   processWait(10);
+  //   offPump();
+  //   processWait(1);
+  // }
+
+  pc.printf("Process Started\r\n");
 
   while(true) {
 
@@ -337,17 +361,15 @@ void processHandle() {
       // STEP 0: Initialization
       digitalOuts = 31;
       onPump();
-      processWait(5);
+      processWait(2);
       digitalOuts = 992;
       offPump();
-      processWait(5);
+      processWait(2);
       digitalOuts = 0;
 
       reportStep(0, "Initialization");
       onPump();
       onDout(0);
-      onDout(4);
-      onDout(1);
       onDout(7);
 
       // Check homing
@@ -363,7 +385,7 @@ void processHandle() {
     // Wait for start signal from Button
     event.wait_all(PROCESS_S);
     reportStep(1, "Process starting");
-    processWait(5);
+    processWait(2);
 
     // Process
     if (processDone != true) {
@@ -372,36 +394,43 @@ void processHandle() {
       // ********************* //
       reportStep(1, "Lysis");
 
+      // Reduce Pump power
+      onPumpHalf();
+
       // Step 1.1
+      reportStep(1, "Lysis 1/4");
       onDout(1);
       processWait(5);
       offDout(1);
-      reportStep(1, "Lysis 1/4");
-
+      
       // Step 1.2
+      reportStep(1, "Lysis 2/4");
       onDout(2);
       processWait(2);
-      onDout(8);
+      onDout(4);
       processWait(10);
       offDout(2);
-      offDout(8);
-      reportStep(1, "Lysis 2/4");
+      offDout(4);
+      
 
       // Step 1.3
+      reportStep(1, "Lysis 3/4");
       onDout(3);
       processWait(2);
-      onDout(8);
+      onDout(4);
       processWait(10);
       offDout(3);
-      offDout(8);
-      reportStep(1, "Lysis 3/4");
+      offDout(4);
+      
 
       // Step 1.4
-      onDout(8);
-      processWait(10);
-      offDout(8);
-
       reportStep(1, "Lysis 4/4");
+      onDout(4);
+      processWait(10);
+      offDout(4);
+
+      // Restore to full power
+      onPump();
 
       // ********************* //
       // Step 2: Beads-Homo
@@ -409,31 +438,31 @@ void processHandle() {
       reportStep(2, "Beads-Homo");
 
       // Step 2.1
+      reportStep(2, "Beads-Homo 1/5");
       offDout(0);
       processWait(5);
-      reportStep(2, "Beads-Homo 1/5");
-
+      
       // Step 2.2
+      reportStep(2, "Beads-Homo 2/5");
       onDout(9);
       processWait(5);
       offDout(9);
-      reportStep(2, "Beads-Homo 2/5");
-
+      
       // Step 2.3
-      onDout(6);
-      processWait(6); // 60s
       reportStep(2, "Beads-Homo 3/5");
+      onDout(5);
+      processWait(1); // 60s
 
       // Step 2.4
+      reportStep(2, "Beads-Homo 4/5");
       onDout(0);
       processWait(5);
-      reportStep(2, "Beads-Homo 4/5");
-
+      
       // Step 2.5
+      reportStep(2, "Beads-Homo 5/5");
       moveStepper(-20);
       processWait(5);
-      reportStep(2, "Beads-Homo 5/5");
-
+      
       // ********************* //
       // Step 3: Washing 1
       // ********************* //
@@ -460,34 +489,36 @@ void processHandle() {
       reportStep(7, "Elution");
 
       // Step 7.1
+      reportStep(7, "Elution 1/6");
       onDout(6);
       processWait(6); // 60s
       offDout(6);
-      reportStep(7, "Elution 1/6");
-
+      
       // Step 7.2
+      reportStep(7, "Elution 2/6");
       offDout(0);
       processWait(5);
-      reportStep(7, "Elution 2/6");
-
+      
       // Step 7.3
-      offDout(5);
       reportStep(7, "Elution 3/6");
-
+      offDout(5);
+      processWait(1);
+      
       // Step 7.4
+      reportStep(7, "Elution 4/6");
       onDout(9);
       processWait(5);
       offDout(9);
-      reportStep(7, "Elution 4/6");
 
       // Step 7.5
-      onDout(6);
-      processWait(6);  // 60s
       reportStep(7, "Elution 5/6");
+      onDout(5);
+      processWait(1);  // 60s
 
       // Step 7.6
-      onDout(0);
       reportStep(7, "Elution 6/6");
+      onDout(0);
+      processWait(1);
 
       // ********************* //
       // Step 8: End
@@ -495,6 +526,10 @@ void processHandle() {
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
       }
+
+      digitalOuts = 0;
+      offPump();
+
       reportStep(8, "End");
 
       processDone = true;
@@ -518,11 +553,11 @@ int main() {
   //queue.call_in(2000, printf, "called in 2 seconds\n");
   //queue.call_every(1000, blink, "called every 1 seconds\n\r");
   
-  // TEMP Disable realtimeTick
+  // HACK: Disable realtimeTick
   // queue.call_every(REALTIME_INTERVAL, realtimeTick);
   queue.call_every(INTERRUPT_INTERVAL, interruptTick);
 
-  // TEMP disable realtimeHandle and commandHandle
+  // HACK: disable realtimeHandle and commandHandle
   // Start Threads
   // realtimeThread.start(realtimeHandle);
   // commandThread.start(commandHandle);
@@ -604,13 +639,19 @@ void interruptHandle() {
     pc.printf("External Interrupt triggered:%d\r\n", dInTriggered);
 
     // TODO: test disable steppers
-    if (dInTriggered == 0) {
+    if (dInTriggered == HOMING_SENSEOR) {
       disableStepper0();
       disableStepper1();
     }
 
-    if (dInTriggered == 1) {
+    if (dInTriggered == BUTTON_PRESSED) {
       event.set(PROCESS_S);
+    }
+
+    if (dInTriggered == BUTTON_RELEASE) {
+      // Reset process
+      initDone = false;
+      processDone = false;
     }
   }
 }
@@ -909,12 +950,19 @@ unsigned char pinRecord1 = HIGH;
 
 void interruptTick() {
   if (digitalIn0.read() == HIGH && pinRecord0 == LOW) {
-    dInTriggered = 0;
+    dInTriggered = HOMING_SENSEOR;
     event.set(INTERRUPT_S);
   }
 
+  // Button pressed: high to low
   if (digitalIn1.read() == LOW && pinRecord1 == HIGH) {
-    dInTriggered = 1;
+    dInTriggered = BUTTON_PRESSED;
+    event.set(INTERRUPT_S);
+  }
+
+  // Button released: low to high
+  if (digitalIn1.read() == HIGH && pinRecord1 == LOW) {
+    dInTriggered = BUTTON_RELEASE;
     event.set(INTERRUPT_S);
   }
   
