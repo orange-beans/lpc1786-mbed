@@ -283,6 +283,8 @@ void offPump() {
 }
 
 void moveStepper(int steps) {
+  enableStepper1();
+  pc.printf("Moving Stepper:%d\r\n", stepper1En.read());
   moveStepper1(system_setting.motorSpeed[1], steps);
 }
 
@@ -297,7 +299,7 @@ void offDout(unsigned int outPin) {
 }
 
 void processWait(unsigned int delayInS) {
-  Thread::wait(delayInS * 1000);
+  Thread::wait(delayInS * 100);
 }
 
 void runWashing(unsigned int num) {
@@ -334,7 +336,7 @@ void runWashing(unsigned int num) {
   
   // Step 3.6
   reportStep(num, "Washing 6/6");
-  moveStepper(-20);
+  moveStepper(-160);
   processWait(5);
 }
 
@@ -343,12 +345,10 @@ void processHandle() {
   // unsigned char processDone = false;
 
   // while(true) {
-  //   onPump();
-  //   onDout(4);
+  //   onDout(9);
   //   processWait(10);
-  //   offDout(4);
+  //   offDout(9);
   //   processWait(10);
-  //   offPump();
   //   processWait(1);
   // }
 
@@ -375,6 +375,8 @@ void processHandle() {
       // Check homing
       if (digitalIn0.read() == LOW) {
         moveStepper(-1000);
+        processWait(1);
+        moveStepper(-10);
       }
       
       enableStepper1();
@@ -460,7 +462,7 @@ void processHandle() {
       
       // Step 2.5
       reportStep(2, "Beads-Homo 5/5");
-      moveStepper(-20);
+      moveStepper(-160);
       processWait(5);
       
       // ********************* //
@@ -525,6 +527,8 @@ void processHandle() {
       // ********************* //
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
+        processWait(1);
+        moveStepper(30);
       }
 
       digitalOuts = 0;
