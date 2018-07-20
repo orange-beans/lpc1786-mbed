@@ -374,9 +374,9 @@ void processHandle() {
 
       // Check homing
       if (digitalIn0.read() == LOW) {
-        moveStepper(-1000);
+        moveStepper(1000);
         processWait(1);
-        moveStepper(-10);
+        moveStepper(30);
       }
       
       enableStepper1();
