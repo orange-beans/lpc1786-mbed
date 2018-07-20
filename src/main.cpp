@@ -336,7 +336,8 @@ void runWashing(unsigned int num) {
   
   // Step 3.6
   reportStep(num, "Washing 6/6");
-  moveStepper(-160);
+  // moveStepper(-160); // 36 degree
+  moveStepper(-154);
   processWait(5);
 }
 
