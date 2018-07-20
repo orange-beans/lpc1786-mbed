@@ -299,7 +299,7 @@ void offDout(unsigned int outPin) {
 }
 
 void processWait(unsigned int delayInS) {
-  Thread::wait(delayInS * 100);
+  Thread::wait(delayInS * 1000);
 }
 
 void runWashing(unsigned int num) {
@@ -316,7 +316,7 @@ void runWashing(unsigned int num) {
   // Step 3.2
   reportStep(num, "Washing 2/6");
   offDout(5);
-  processWait(1); // 60s
+  processWait(60); // 60s
   
   // Step 3.3
   reportStep(num, "Washing 3/6");
@@ -327,7 +327,7 @@ void runWashing(unsigned int num) {
   // Step 3.4
   reportStep(num, "Washing 4/6");
   onDout(5);
-  processWait(1); // 60s
+  processWait(60); // 60s
   
   // Step 3.5
   reportStep(num, "Washing 5/6");
@@ -454,7 +454,7 @@ void processHandle() {
       // Step 2.3
       reportStep(2, "Beads-Homo 3/5");
       onDout(5);
-      processWait(1); // 60s
+      processWait(60); // 60s
 
       // Step 2.4
       reportStep(2, "Beads-Homo 4/5");
@@ -494,7 +494,7 @@ void processHandle() {
       // Step 7.1
       reportStep(7, "Elution 1/6");
       onDout(6);
-      processWait(6); // 60s
+      processWait(60); // 60s
       offDout(6);
       
       // Step 7.2
@@ -505,7 +505,7 @@ void processHandle() {
       // Step 7.3
       reportStep(7, "Elution 3/6");
       offDout(5);
-      processWait(1); // 60s
+      processWait(60); // 60s
       
       // Step 7.4
       reportStep(7, "Elution 4/6");
@@ -516,7 +516,8 @@ void processHandle() {
       // Step 7.5
       reportStep(7, "Elution 5/6");
       onDout(5);
-      processWait(1);  // 60s
+      processWait(60);  // 60s
+      offDout(5);
 
       // Step 7.6
       reportStep(7, "Elution 6/6");
@@ -533,7 +534,6 @@ void processHandle() {
       }
 
       digitalOuts = 1;
-      offDout(5);
 
       reportStep(8, "End");
 
