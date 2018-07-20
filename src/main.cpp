@@ -316,7 +316,7 @@ void runWashing(unsigned int num) {
   // Step 3.2
   reportStep(num, "Washing 2/6");
   offDout(5);
-  processWait(1);
+  processWait(1); // 60s
   
   // Step 3.3
   reportStep(num, "Washing 3/6");
@@ -359,13 +359,13 @@ void processHandle() {
     // Init process
     if (initDone != true) {
       // STEP 0: Initialization
-      digitalOuts = 31;
-      onPump();
-      processWait(2);
-      digitalOuts = 992;
-      offPump();
-      processWait(2);
-      digitalOuts = 0;
+      // digitalOuts = 31;
+      // onPump();
+      // processWait(2);
+      // digitalOuts = 992;
+      // offPump();
+      // processWait(2);
+      // digitalOuts = 0;
 
       reportStep(0, "Initialization");
       onPump();
@@ -504,7 +504,7 @@ void processHandle() {
       // Step 7.3
       reportStep(7, "Elution 3/6");
       offDout(5);
-      processWait(1);
+      processWait(1); // 60s
       
       // Step 7.4
       reportStep(7, "Elution 4/6");
@@ -531,8 +531,8 @@ void processHandle() {
         moveStepper(30);
       }
 
-      digitalOuts = 0;
-      offPump();
+      digitalOuts = 1;
+      offDout(5);
 
       reportStep(8, "End");
 
