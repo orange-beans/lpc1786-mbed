@@ -450,6 +450,7 @@ void processHandle() {
       onDout(9);
       processWait(5);
       offDout(9);
+      processWait(60);
       
       // Step 2.3
       reportStep(2, "Beads-Homo 3/5");
