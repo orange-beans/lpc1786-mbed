@@ -518,7 +518,6 @@ void processHandle() {
       reportStep(7, "Elution 5/6");
       onDout(5);
       processWait(60);  // 60s
-      offDout(5);
 
       // Step 7.6
       reportStep(7, "Elution 6/6");
@@ -534,6 +533,7 @@ void processHandle() {
         moveStepper(30);
       }
 
+      offDout(5);
       digitalOuts = 1;
 
       reportStep(8, "End");
