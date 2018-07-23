@@ -372,6 +372,7 @@ void processHandle() {
       onPump();
       onDout(0);
       onDout(7);
+      processWait(2);
 
       // Check homing
       if (digitalIn0.read() == LOW) {
@@ -449,9 +450,9 @@ void processHandle() {
       // Step 2.2
       reportStep(2, "Beads-Homo 2/5");
       onDout(9);
-      processWait(5);
+      processWait(20);
       offDout(9);
-      processWait(60);
+      processWait(60);  // Incubation time 60s
       
       // Step 2.3
       reportStep(2, "Beads-Homo 3/5");
