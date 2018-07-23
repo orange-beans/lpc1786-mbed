@@ -316,12 +316,12 @@ void runWashing(unsigned int num) {
   // Step 3.2
   reportStep(num, "Washing 2/6");
   offDout(5);
-  processWait(60); // 60s
+  processWait(20); // 20s for cooling down
   
   // Step 3.3
   reportStep(num, "Washing 3/6");
   onDout(9);
-  processWait(5);
+  processWait(20); // 20s for mixing
   offDout(9);
   
   // Step 3.4
@@ -332,7 +332,7 @@ void runWashing(unsigned int num) {
   // Step 3.5
   reportStep(num, "Washing 5/6");
   onDout(0);
-  processWait(5);
+  processWait(1);
   
   // Step 3.6
   reportStep(num, "Washing 6/6");
@@ -376,7 +376,7 @@ void processHandle() {
       // Check homing
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
-        processWait(1);
+        processWait(3);
         moveStepper(30);
       }
       
@@ -402,7 +402,7 @@ void processHandle() {
 
       // Step 1.1
       reportStep(1, "Lysis 1/4");
-      // onDout(1); // NOTE: temp off ultrasonic
+      onDout(1); // NOTE: temp off ultrasonic
       processWait(5);
       offDout(1);
       
@@ -411,18 +411,18 @@ void processHandle() {
       onDout(2);
       processWait(2);
       onDout(4);
-      processWait(10);
+      processWait(30);
       offDout(2);
       offDout(4);
       
 
       // Step 1.3
-      onPumpHalf(6);
+      onPumpHalf(8);
       reportStep(1, "Lysis 3/4");
       onDout(3);
       processWait(2);
       onDout(4);
-      processWait(10);
+      processWait(20);
       offDout(3);
       offDout(4);
       
@@ -430,7 +430,7 @@ void processHandle() {
       // Step 1.4
       reportStep(1, "Lysis 4/4");
       onDout(4);
-      processWait(10);
+      processWait(20);
       offDout(4);
 
       // Restore to full power
@@ -461,7 +461,7 @@ void processHandle() {
       // Step 2.4
       reportStep(2, "Beads-Homo 4/5");
       onDout(0);
-      processWait(5);
+      processWait(1);
       
       // Step 2.5
       reportStep(2, "Beads-Homo 5/5");
@@ -507,12 +507,12 @@ void processHandle() {
       // Step 7.3
       reportStep(7, "Elution 3/6");
       offDout(5);
-      processWait(60); // 60s
+      processWait(20); // 20s for cooling
       
       // Step 7.4
       reportStep(7, "Elution 4/6");
       onDout(9);
-      processWait(5);
+      processWait(20);  // 20s for mixing
       offDout(9);
 
       // Step 7.5
@@ -530,7 +530,7 @@ void processHandle() {
       // ********************* //
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
-        processWait(1);
+        processWait(3);
         moveStepper(30);
       }
 
