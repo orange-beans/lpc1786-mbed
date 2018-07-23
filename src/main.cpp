@@ -328,6 +328,7 @@ void runWashing(unsigned int num) {
   processWait(1);
   onDout(9);
   processWait(5);
+  offDout(9);
   
   // Step 3.4
   reportStep(num, "Washing 4/6");
@@ -382,7 +383,7 @@ void processHandle() {
       // Check homing
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
-        processWait(3);
+        processWait(1);
         moveStepper(30);
       }
       
@@ -461,6 +462,7 @@ void processHandle() {
       processWait(1);
       onDout(9);
       processWait(5);
+      offDout(9);
 
       processWait(60);  // Incubation time 60s
       
@@ -530,6 +532,7 @@ void processHandle() {
       processWait(1);
       onDout(9);
       processWait(5);
+      offDout(9);
 
       // Step 7.5
       reportStep(7, "Elution 5/6");
@@ -546,7 +549,7 @@ void processHandle() {
       // ********************* //
       if (digitalIn0.read() == LOW) {
         moveStepper(1000);
-        processWait(3);
+        processWait(1);
         moveStepper(30);
       }
 
