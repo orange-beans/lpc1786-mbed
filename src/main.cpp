@@ -320,9 +320,14 @@ void runWashing(unsigned int num) {
   
   // Step 3.3
   reportStep(num, "Washing 3/6");
+
+  // Mixing
   onDout(9);
-  processWait(20); // 20s for mixing
+  processWait(5);
   offDout(9);
+  processWait(1);
+  onDout(9);
+  processWait(5);
   
   // Step 3.4
   reportStep(num, "Washing 4/6");
@@ -449,9 +454,14 @@ void processHandle() {
       
       // Step 2.2
       reportStep(2, "Beads-Homo 2/5");
+      // Mixing
       onDout(9);
-      processWait(20);
+      processWait(5);
       offDout(9);
+      processWait(1);
+      onDout(9);
+      processWait(5);
+
       processWait(60);  // Incubation time 60s
       
       // Step 2.3
@@ -512,9 +522,14 @@ void processHandle() {
       
       // Step 7.4
       reportStep(7, "Elution 4/6");
+      
+      // Mixing
       onDout(9);
-      processWait(20);  // 20s for mixing
+      processWait(5);
       offDout(9);
+      processWait(1);
+      onDout(9);
+      processWait(5);
 
       // Step 7.5
       reportStep(7, "Elution 5/6");
