@@ -274,8 +274,8 @@ void onPump() {
   pwmOut0.write(1);
 }
 
-void onPumpHalf() {
-  pwmOut0.write(0.8);
+void onPumpHalf(double voltage) {
+  pwmOut0.write(voltage/12);
 }
 
 void offPump() {
@@ -398,11 +398,11 @@ void processHandle() {
       reportStep(1, "Lysis");
 
       // Reduce Pump power
-      onPumpHalf();
+      onPumpHalf(8);
 
       // Step 1.1
       reportStep(1, "Lysis 1/4");
-      onDout(1);
+      // onDout(1); // NOTE: temp off ultrasonic
       processWait(5);
       offDout(1);
       
@@ -417,6 +417,7 @@ void processHandle() {
       
 
       // Step 1.3
+      onPumpHalf(6);
       reportStep(1, "Lysis 3/4");
       onDout(3);
       processWait(2);
